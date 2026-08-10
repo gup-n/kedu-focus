@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { seedState } from './seed'
+import { demoState as seedState } from '../test/fixtures'
 import { MemoryRepository } from './repository'
 
 describe('MemoryRepository', () => {

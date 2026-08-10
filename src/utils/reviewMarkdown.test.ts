@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { seedState } from '../data/seed'
+import { demoState as seedState } from '../test/fixtures'
 import { buildReviewMarkdown, downloadReviewMarkdown } from './reviewMarkdown'
 
 afterEach(() => vi.restoreAllMocks())

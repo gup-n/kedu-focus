@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { MemoryRepository } from '../data/repository'
-import { seedState } from '../data/seed'
+import { demoState as seedState } from '../test/fixtures'
 import { AppProvider } from '../state/AppContext'
 
 function renderStats() {

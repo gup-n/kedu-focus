@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { seedState } from '../data/seed'
+import { demoState as seedState } from '../test/fixtures'
 import { createCsv, csvCell, sessionsCsv, sleepCsv, tasksCsv } from './csv'
 
 describe('CSV export', () => {
