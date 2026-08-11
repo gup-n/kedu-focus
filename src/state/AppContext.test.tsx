@@ -17,6 +17,21 @@ describe('appReducer', () => {
     expect(seedState.tasks.find(task => task.id === 't1')?.completedAt).toBeUndefined()
   })
 
+  it('creates exactly one next occurrence when completing a recurring task', () => {
+    const recurring = structuredClone(seedState)
+    recurring.tasks[0].recurrence = { kind: 'daily' }
+    recurring.tasks[0].plannedDate = '2026-08-10'
+    recurring.tasks[0].dueDate = '2026-08-12'
+
+    const completed = appReducer(recurring, { type: 'TOGGLE_TASK', id: recurring.tasks[0].id })
+    const next = completed.tasks.find(task => task.recurrenceSourceId === recurring.tasks[0].id)
+    const reopened = appReducer(completed, { type: 'TOGGLE_TASK', id: recurring.tasks[0].id })
+    const completedAgain = appReducer(reopened, { type: 'TOGGLE_TASK', id: recurring.tasks[0].id })
+
+    expect(next).toMatchObject({ plannedDate: '2026-08-11', dueDate: '2026-08-13', completedAt: undefined })
+    expect(completedAgain.tasks.filter(task => task.recurrenceSourceId === recurring.tasks[0].id)).toHaveLength(1)
+  })
+
   it('adds, updates, and deletes a task while preserving its plan and due dates', () => {
     const task = {
       id: 'new',

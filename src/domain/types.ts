@@ -1,6 +1,8 @@
 export type Priority = 'high' | 'medium' | 'low'
+export type RecurrenceKind = 'daily' | 'weekly' | 'weekdays'
+export interface TaskRecurrence { kind: RecurrenceKind; weekdays?: number[] }
 export interface Category { id: string; name: string; color: string; archived?: boolean; updatedAt?: string }
-export interface Task { id: string; title: string; note: string; plannedDate: string; dueDate: string; priority: Priority; categoryId: string; estimatedPomodoros: number; createdAt?: string; completedAt?: string; updatedAt?: string; deletedAt?: string }
+export interface Task { id: string; title: string; note: string; plannedDate: string; dueDate: string; priority: Priority; categoryId: string; estimatedPomodoros: number; recurrence?: TaskRecurrence; recurrenceSourceId?: string; createdAt?: string; completedAt?: string; updatedAt?: string; deletedAt?: string }
 export interface FocusSession { id: string; taskId?: string; categoryId: string; startedAt: string; endedAt: string; minutes: number; seconds?: number; note?: string; updatedAt?: string; deletedAt?: string }
 export interface Review { id: string; date: string; summary: string; improvement: string; tomorrow: string }
 export interface SleepRecord { id: string; date: string; sleptAt: string; wokeAt: string; score: number }

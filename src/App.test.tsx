@@ -79,6 +79,18 @@ describe('task and category workflows', () => {
     expect(screen.getByRole('heading', { name: '编辑任务' })).toBeInTheDocument()
   })
 
+  it('configures a recurring task and exposes the rule in details', async () => {
+    renderRoute('/tasks')
+    await screen.findByText('已保存在本机')
+    fireEvent.click(screen.getByRole('button', { name: '新建任务' }))
+    fireEvent.change(screen.getByLabelText('任务标题'), { target: { value: '每周整理' } })
+    fireEvent.change(screen.getByLabelText('重复规则'), { target: { value: 'weekly' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建任务' }))
+    fireEvent.click(await screen.findByRole('button', { name: '查看任务：每周整理' }))
+
+    expect(screen.getByText('每周同一天')).toBeInTheDocument()
+  })
+
   it('rejects duplicate category names and can rename and archive a category', async () => {
     renderRoute('/settings')
     await screen.findByText('已保存在本机')
@@ -138,6 +150,7 @@ describe('timer and review workflows', () => {
     expect(screen.getByLabelText(/可以改进/)).toBeInTheDocument()
     expect(screen.getByLabelText(/明日计划/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '导出 Markdown' })).toBeInTheDocument()
+    expect(document.querySelectorAll('.review-marker').length).toBeGreaterThan(0)
   })
 
   it('uses a focused full-screen editor for reviews on narrow screens', async () => {
@@ -156,6 +169,17 @@ describe('timer and review workflows', () => {
     fireEvent.change(screen.getByLabelText('复盘专注编辑框'), { target: { value: '确认后的长文' } })
     fireEvent.click(screen.getByRole('button', { name: '确认' }))
     expect(field).toHaveValue('确认后的长文')
+  })
+
+  it('shows searchable history and week/month review summaries', async () => {
+    renderRoute('/review')
+    await screen.findByText('已保存在本机')
+    expect(screen.getByText('周期回顾')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '导出周复盘' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '月' }))
+    expect(screen.getByRole('button', { name: '导出月复盘' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('搜索历史复盘'), { target: { value: '最重要' } })
+    expect(screen.getAllByText(/完成了最重要的梳理工作/).length).toBeGreaterThan(0)
   })
 
   it('requires confirmation and immediately hides a deleted focus session', async () => {

@@ -81,6 +81,11 @@ function validateTask(value: unknown, index: number) {
   if (!isDateKey(task.plannedDate) || !isDateKey(task.dueDate)) fail(`任务 #${index + 1} 的日期格式不正确。`)
   if (!['high', 'medium', 'low'].includes(String(task.priority)) || !isString(task.categoryId) || !isNumber(task.estimatedPomodoros)) fail(`任务 #${index + 1} 的核心字段不正确。`)
   if (task.createdAt !== undefined && !isIsoDate(task.createdAt)) fail(`任务 #${index + 1} 的创建时间不正确。`)
+  if (task.recurrence !== undefined) {
+    const recurrence = requireRecord(task.recurrence, `任务 #${index + 1} 的重复规则`)
+    if (!['daily', 'weekly', 'weekdays'].includes(String(recurrence.kind))) fail(`任务 #${index + 1} 的重复规则不正确。`)
+    if (recurrence.kind === 'weekdays' && (!Array.isArray(recurrence.weekdays) || !recurrence.weekdays.length || recurrence.weekdays.some(day => !Number.isInteger(day) || day < 0 || day > 6))) fail(`任务 #${index + 1} 的重复星期不正确。`)
+  }
   if (task.deletedAt !== undefined && !isIsoDate(task.deletedAt)) fail(`任务 #${index + 1} 的删除时间不正确。`)
 }
 

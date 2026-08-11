@@ -25,6 +25,9 @@ describe('backup envelope', () => {
     const invalidCreation = createBackupEnvelope(seedState)
     invalidCreation.data.tasks[0].createdAt = 'not-a-date'
     expect(() => parseBackupJson(JSON.stringify(invalidCreation))).toThrow('创建时间不正确')
+    const invalidRecurrence = createBackupEnvelope(seedState)
+    invalidRecurrence.data.tasks[0].recurrence = { kind: 'weekdays', weekdays: [] }
+    expect(() => parseBackupJson(JSON.stringify(invalidRecurrence))).toThrow('重复星期不正确')
   })
 
   it('backfills a stable creation time when importing a legacy task', () => {

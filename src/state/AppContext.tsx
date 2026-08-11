@@ -3,6 +3,7 @@ import type { AppSettings, AppState, Category, Review, SleepRecord, Task, TimerS
 import { createRepository, type Repository } from '../data/repository'
 import { seedState } from '../data/seed'
 import { visibleAppState } from '../domain/selectors'
+import { createNextRecurringTask } from '../utils/recurrence'
 
 export type StorageStatus = 'loading' | 'saved' | 'saving' | 'error'
 
@@ -117,7 +118,16 @@ export function appReducer(state: AppState, action: Action): AppState {
     }
     case 'TOGGLE_TASK': {
       const now = new Date().toISOString()
-      return { ...state, tasks: state.tasks.map(task => task.id === action.id && !task.deletedAt ? { ...task, completedAt: task.completedAt ? undefined : now, updatedAt: now } : task) }
+      const target = state.tasks.find(task => task.id === action.id && !task.deletedAt)
+      if (!target) return state
+      const completing = !target.completedAt
+      const tasks = state.tasks.map(task => task.id === action.id ? { ...task, completedAt: completing ? now : undefined, updatedAt: now } : task)
+      if (!completing || !target.recurrence) return { ...state, tasks }
+      const next = createNextRecurringTask(target, crypto.randomUUID(), now)
+      if (!next) return { ...state, tasks }
+      const sourceId = next.recurrenceSourceId
+      const exists = tasks.some(task => (task.recurrenceSourceId ?? task.id) === sourceId && task.plannedDate === next.plannedDate)
+      return { ...state, tasks: exists ? tasks : [next, ...tasks] }
     }
     case 'ADD_CATEGORY': return { ...state, categories: [...state.categories, action.category] }
     case 'UPDATE_CATEGORY': return { ...state, categories: state.categories.map(category => category.id === action.category.id ? action.category : category) }
