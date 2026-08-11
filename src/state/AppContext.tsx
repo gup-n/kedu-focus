@@ -33,8 +33,8 @@ export type Action =
 const phaseSeconds = (state: AppState, phase: TimerState['phase']) =>
   (phase === 'focus' ? state.settings.focusMinutes : phase === 'shortBreak' ? state.settings.shortBreakMinutes : state.settings.longBreakMinutes) * 60
 
-const elapsedAt = (timer: TimerState, now: number) => Math.min(
-  timer.durationSeconds,
+const elapsedAt = (timer: TimerState, now: number) => Math.max(
+  0,
   timer.elapsedSeconds + (timer.status === 'running' && timer.runStartedAt
     ? Math.max(0, Math.floor((now - Date.parse(timer.runStartedAt)) / 1000))
     : 0),
@@ -50,18 +50,18 @@ function normalizedTimer(state: AppState, now: number): TimerState {
     runStartedAt: state.timer.status === 'running' ? (state.timer.runStartedAt ?? new Date(now).toISOString()) : undefined,
   }
   const currentElapsed = elapsedAt(timer, now)
-  return { ...timer, elapsedSeconds: timer.status === 'running' ? timer.elapsedSeconds : currentElapsed, remainingSeconds: Math.max(0, durationSeconds - currentElapsed) }
+  return { ...timer, elapsedSeconds: currentElapsed, runStartedAt: timer.status === 'running' ? new Date(now).toISOString() : undefined, remainingSeconds: Math.max(0, durationSeconds - currentElapsed) }
 }
 
 function normalizeState(state: AppState, now = Date.now()): AppState {
   const timerTask = state.tasks.find(task => task.id === state.timer.taskId)
   const normalized = {
     ...state,
-    tasks: state.tasks.map(task => ({ ...task, plannedDate: task.plannedDate ?? task.dueDate })),
+    tasks: state.tasks.map(task => ({ ...task, plannedDate: task.plannedDate ?? task.dueDate, createdAt: task.createdAt ?? task.updatedAt ?? `${task.plannedDate ?? task.dueDate}T00:00:00+08:00` })),
     categories: state.categories.map(category => ({ ...category, archived: category.archived ?? false })),
     timer: normalizedTimer({ ...state, timer: timerTask?.deletedAt ? { ...state.timer, taskId: undefined } : state.timer }, now),
   }
-  return normalized.timer.status === 'running' && normalized.timer.remainingSeconds === 0
+  return normalized.timer.status === 'running' && normalized.timer.phase !== 'focus' && normalized.timer.remainingSeconds === 0
     ? finishTimer(normalized, now)
     : normalized
 }
@@ -98,8 +98,11 @@ function finishTimer(state: AppState, now: number, allowPartial = false): AppSta
 export function appReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'HYDRATE': return normalizeState(action.state)
-    case 'ADD_TASK': return { ...state, tasks: [action.task, ...state.tasks] }
-    case 'UPDATE_TASK': return { ...state, tasks: state.tasks.map(task => task.id === action.task.id ? action.task : task) }
+    case 'ADD_TASK': {
+      const now = action.task.updatedAt ?? new Date().toISOString()
+      return { ...state, tasks: [{ ...action.task, createdAt: action.task.createdAt ?? now, updatedAt: action.task.updatedAt ?? now }, ...state.tasks] }
+    }
+    case 'UPDATE_TASK': return { ...state, tasks: state.tasks.map(task => task.id === action.task.id ? { ...action.task, createdAt: task.createdAt ?? action.task.createdAt ?? task.updatedAt ?? action.task.updatedAt } : task) }
     case 'DELETE_TASK': {
       const now = new Date().toISOString()
       return {
@@ -150,9 +153,9 @@ export function appReducer(state: AppState, action: Action): AppState {
       if (state.timer.status !== 'running') return state
       const now = Date.parse(action.now ?? new Date().toISOString())
       const elapsedSeconds = elapsedAt(state.timer, now)
-      return elapsedSeconds >= state.timer.durationSeconds
+      return elapsedSeconds >= state.timer.durationSeconds && state.timer.phase !== 'focus'
         ? finishTimer(state, now)
-        : { ...state, timer: { ...state.timer, remainingSeconds: state.timer.durationSeconds - elapsedSeconds } }
+        : { ...state, timer: { ...state.timer, elapsedSeconds, runStartedAt: new Date(now).toISOString(), remainingSeconds: Math.max(0, state.timer.durationSeconds - elapsedSeconds) } }
     }
     case 'TIMER_FINISH': return finishTimer(state, Date.parse(action.now ?? new Date().toISOString()))
     case 'TIMER_END_EARLY': return finishTimer(state, Date.parse(action.now ?? new Date().toISOString()), true)

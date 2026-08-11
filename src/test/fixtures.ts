@@ -18,10 +18,10 @@ export const demoState: AppState = {
     { id: 'review', name: '复盘', color: '#a46ee5' },
   ],
   tasks: [
-    { id: 't1', title: '完成产品原型的交互梳理', note: '整理主流程与异常状态', plannedDate: today, dueDate: today, priority: 'high', categoryId: 'work', estimatedPomodoros: 3 },
-    { id: 't2', title: '阅读 TypeScript 章节', note: '记录三个可复用技巧', plannedDate: today, dueDate: today, priority: 'medium', categoryId: 'study', estimatedPomodoros: 2 },
-    { id: 't3', title: '晚间散步 30 分钟', note: '不带耳机', plannedDate: today, dueDate: today, priority: 'low', categoryId: 'life', estimatedPomodoros: 1 },
-    { id: 't4', title: '整理上周项目笔记', note: '归档到知识库', plannedDate: format(new Date(Date.now() - 86400000), 'yyyy-MM-dd'), dueDate: format(new Date(Date.now() - 86400000), 'yyyy-MM-dd'), priority: 'medium', categoryId: 'review', estimatedPomodoros: 1, completedAt: iso(-1, 18, 15) },
+    { id: 't1', title: '完成产品原型的交互梳理', note: '整理主流程与异常状态', plannedDate: today, dueDate: today, priority: 'high', categoryId: 'work', estimatedPomodoros: 3, createdAt: iso(-4, 9) },
+    { id: 't2', title: '阅读 TypeScript 章节', note: '记录三个可复用技巧', plannedDate: today, dueDate: today, priority: 'medium', categoryId: 'study', estimatedPomodoros: 2, createdAt: iso(-3, 9) },
+    { id: 't3', title: '晚间散步 30 分钟', note: '不带耳机', plannedDate: today, dueDate: today, priority: 'low', categoryId: 'life', estimatedPomodoros: 1, createdAt: iso(-2, 9) },
+    { id: 't4', title: '整理上周项目笔记', note: '归档到知识库', plannedDate: format(new Date(Date.now() - 86400000), 'yyyy-MM-dd'), dueDate: format(new Date(Date.now() - 86400000), 'yyyy-MM-dd'), priority: 'medium', categoryId: 'review', estimatedPomodoros: 1, createdAt: iso(-1, 9), completedAt: iso(-1, 18, 15) },
   ],
   sessions: [
     { id: 's1', taskId: 't1', categoryId: 'work', startedAt: iso(0, 9), endedAt: iso(0, 9, 25), minutes: 25 },

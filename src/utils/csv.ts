@@ -1,5 +1,5 @@
 import type { AppState } from '../domain/types'
-import { downloadBlob } from './backup'
+import { exportFile } from './fileExport'
 
 export function csvCell(value: unknown): string {
   const text = value === undefined || value === null ? '' : String(value)
@@ -15,8 +15,8 @@ const taskName = (state: AppState, id?: string) => !id ? '未关联任务' : sta
 
 export function tasksCsv(state: AppState) {
   return createCsv([
-    ['任务ID', '标题', '说明', '计划日期', '截止日期', '优先级', '分类', '预计番茄数', '完成时间', '删除时间', '更新时间'],
-    ...state.tasks.filter(task => !task.deletedAt).map(task => [task.id, task.title, task.note, task.plannedDate, task.dueDate, task.priority, categoryName(state, task.categoryId), task.estimatedPomodoros, task.completedAt, task.deletedAt, task.updatedAt]),
+    ['任务ID', '标题', '说明', '计划日期', '截止日期', '优先级', '分类', '预计番茄数', '创建时间', '完成时间', '删除时间', '更新时间'],
+    ...state.tasks.filter(task => !task.deletedAt).map(task => [task.id, task.title, task.note, task.plannedDate, task.dueDate, task.priority, categoryName(state, task.categoryId), task.estimatedPomodoros, task.createdAt, task.completedAt, task.deletedAt, task.updatedAt]),
   ])
 }
 
@@ -44,5 +44,5 @@ export function downloadCsv(state: AppState, kind: CsvKind) {
   } as const
   const [name, factory] = config[kind]
   const date = new Date().toISOString().slice(0, 10)
-  downloadBlob(['\ufeff', factory(state)], `刻度_${name}_${date}.csv`, 'text/csv;charset=utf-8')
+  return exportFile(['\ufeff', factory(state)], `刻度_${name}_${date}.csv`, 'text/csv;charset=utf-8')
 }

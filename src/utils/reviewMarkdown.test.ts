@@ -20,7 +20,7 @@ describe('buildReviewMarkdown', () => {
     expect(markdown).toContain('## 明日计划\n\n补充测试')
   })
 
-  it('creates a real Markdown file download with the review date as its name', () => {
+  it('creates a real Markdown file download with the review date as its name', async () => {
     const createObjectURL = vi.fn(() => 'blob:review')
     const revokeObjectURL = vi.fn()
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL })
@@ -28,7 +28,7 @@ describe('buildReviewMarkdown', () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
     const review = { id: 'review-test', date: '2026-08-09', summary: '收获', improvement: '改进', tomorrow: '计划' }
 
-    downloadReviewMarkdown(seedState, review)
+    await downloadReviewMarkdown(seedState, review)
 
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob))
     expect(click).toHaveBeenCalledOnce()

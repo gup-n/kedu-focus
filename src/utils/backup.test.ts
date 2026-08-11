@@ -22,6 +22,18 @@ describe('backup envelope', () => {
     const invalid = createBackupEnvelope(seedState)
     ;(invalid.data.tasks[0] as unknown as { plannedDate: number }).plannedDate = 9
     expect(() => parseBackupJson(JSON.stringify(invalid))).toThrow('日期格式不正确')
+    const invalidCreation = createBackupEnvelope(seedState)
+    invalidCreation.data.tasks[0].createdAt = 'not-a-date'
+    expect(() => parseBackupJson(JSON.stringify(invalidCreation))).toThrow('创建时间不正确')
+  })
+
+  it('backfills a stable creation time when importing a legacy task', () => {
+    const legacy = createBackupEnvelope(seedState)
+    delete legacy.data.tasks[0].createdAt
+    legacy.data.tasks[0].updatedAt = '2026-08-08T09:00:00.000Z'
+
+    const parsed = parseBackupJson(JSON.stringify(legacy))
+    expect(parsed.data.tasks[0].createdAt).toBe('2026-08-08T09:00:00.000Z')
   })
 
   it.each(['tasks', 'categories', 'sessions', 'reviews', 'sleep'] as const)('rejects duplicate IDs in %s', collection => {

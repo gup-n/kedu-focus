@@ -1,4 +1,7 @@
 import type { AppState, Category, FocusSession, Review, SleepRecord, Task } from '../domain/types'
+import { exportFile } from './fileExport'
+
+export { downloadBlob } from './fileExport'
 
 export const BACKUP_FORMAT = 'focus-planner-backup'
 export const BACKUP_SCHEMA_VERSION = 1 as const
@@ -77,6 +80,7 @@ function validateTask(value: unknown, index: number) {
   if (!isString(task.title) || !isString(task.note)) fail(`任务 #${index + 1} 的标题或说明格式不正确。`)
   if (!isDateKey(task.plannedDate) || !isDateKey(task.dueDate)) fail(`任务 #${index + 1} 的日期格式不正确。`)
   if (!['high', 'medium', 'low'].includes(String(task.priority)) || !isString(task.categoryId) || !isNumber(task.estimatedPomodoros)) fail(`任务 #${index + 1} 的核心字段不正确。`)
+  if (task.createdAt !== undefined && !isIsoDate(task.createdAt)) fail(`任务 #${index + 1} 的创建时间不正确。`)
   if (task.deletedAt !== undefined && !isIsoDate(task.deletedAt)) fail(`任务 #${index + 1} 的删除时间不正确。`)
 }
 
@@ -132,6 +136,10 @@ function validateState(value: unknown): AppState {
   assertUniqueIds(sessions, 'sessions')
   assertUniqueIds(reviews, 'reviews')
   assertUniqueIds(sleep, 'sleep')
+  for (const value of tasks) {
+    const task = value as unknown as Task
+    task.createdAt ??= task.updatedAt ?? `${task.plannedDate}T00:00:00+08:00`
+  }
 
   const settings = requireRecord(data.settings, 'settings')
   if (!['light', 'dark', 'system'].includes(String(settings.theme)) || !['focusMinutes', 'shortBreakMinutes', 'longBreakMinutes', 'longBreakEvery'].every(key => isNumber(settings[key]))) fail('备份中的计时设置格式不正确。')
@@ -229,17 +237,6 @@ export function applyConflictChoices(plan: MergePlan, choices: Record<string, Co
   return state
 }
 
-export function downloadBlob(contents: BlobPart[], filename: string, type: string) {
-  const url = URL.createObjectURL(new Blob(contents, { type }))
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
 function dateStamp(date: Date) {
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}`
@@ -247,7 +244,7 @@ function dateStamp(date: Date) {
 
 export function downloadBackup(state: AppState, prefix = '刻度备份', now = new Date()) {
   const envelope = createBackupEnvelope(state, now.toISOString())
-  downloadBlob([JSON.stringify(envelope, null, 2)], `${prefix}_${dateStamp(now)}.json`, 'application/json;charset=utf-8')
+  return exportFile([JSON.stringify(envelope, null, 2)], `${prefix}_${dateStamp(now)}.json`, 'application/json;charset=utf-8')
 }
 
 export function collectionLabel(collection: EntityCollection) { return conflictLabels[collection] }

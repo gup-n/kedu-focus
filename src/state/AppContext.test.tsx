@@ -36,8 +36,10 @@ describe('appReducer', () => {
     })
     const deleted = appReducer(updated, { type: 'DELETE_TASK', id: task.id })
 
-    expect(added.tasks[0]).toEqual(task)
+    expect(added.tasks[0]).toMatchObject(task)
+    expect(added.tasks[0].createdAt).toEqual(expect.any(String))
     expect(updated.tasks[0]).toMatchObject({ title: '修改后的任务', plannedDate: '2026-08-10', dueDate: '2026-08-12' })
+    expect(updated.tasks[0].createdAt).toBe(added.tasks[0].createdAt)
     expect(deleted.tasks).toHaveLength(seedState.tasks.length + 1)
     expect(deleted.tasks.find(item => item.id === task.id)?.deletedAt).toBeTruthy()
     expect(seedState.tasks).toHaveLength(4)
@@ -105,6 +107,28 @@ describe('appReducer', () => {
 
       expect(hydrated.timer.status).toBe('running')
       expect(hydrated.timer.remainingSeconds).toBe(1365)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps focus running past its target and records the full elapsed time', () => {
+    const started = appReducer(seedState, { type: 'TIMER_START', now: '2026-08-09T09:00:00.000Z' })
+    const overtime = appReducer(started, { type: 'TIMER_TICK', now: '2026-08-09T09:30:00.000Z' })
+    const ended = appReducer(overtime, { type: 'TIMER_END_EARLY', now: '2026-08-09T09:31:00.000Z' })
+
+    expect(overtime.timer).toMatchObject({ status: 'running', remainingSeconds: 0, elapsedSeconds: 1800 })
+    expect(ended.sessions.at(-1)).toMatchObject({ seconds: 1860, minutes: 31 })
+  })
+
+  it('reconciles focus overtime after the app returns from the background', () => {
+    vi.useFakeTimers()
+    try {
+      const started = appReducer(seedState, { type: 'TIMER_START', now: '2026-08-09T09:00:00.000Z' })
+      vi.setSystemTime(new Date('2026-08-09T09:40:00.000Z'))
+      const hydrated = appReducer(seedState, { type: 'HYDRATE', state: started })
+
+      expect(hydrated.timer).toMatchObject({ status: 'running', remainingSeconds: 0, elapsedSeconds: 2400 })
     } finally {
       vi.useRealTimers()
     }

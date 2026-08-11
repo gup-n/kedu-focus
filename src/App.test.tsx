@@ -21,6 +21,7 @@ afterEach(() => {
   cleanup()
   vi.useRealTimers()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('task and category workflows', () => {
@@ -67,6 +68,17 @@ describe('task and category workflows', () => {
     expect(screen.queryByText('修改后的任务')).not.toBeInTheDocument()
   })
 
+  it('opens a read-only task detail before editing', async () => {
+    renderRoute('/tasks')
+    await screen.findByText('已保存在本机')
+
+    fireEvent.click(screen.getByRole('button', { name: '查看任务：完成产品原型的交互梳理' }))
+    expect(screen.getByRole('dialog', { name: '完成产品原型的交互梳理' })).toBeInTheDocument()
+    expect(screen.getByText('整理主流程与异常状态')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '编辑任务' }))
+    expect(screen.getByRole('heading', { name: '编辑任务' })).toBeInTheDocument()
+  })
+
   it('rejects duplicate category names and can rename and archive a category', async () => {
     renderRoute('/settings')
     await screen.findByText('已保存在本机')
@@ -110,7 +122,8 @@ describe('timer and review workflows', () => {
       fireEvent.click(screen.getByRole('button', { name: '短休息' }))
       expect(confirm).toHaveBeenCalledTimes(2)
       expect(screen.getByRole('button', { name: '短休息' })).toHaveClass('active')
-      expect(screen.getByText('3 次 · 51 分钟')).toBeInTheDocument()
+      expect(screen.getByText('3 次 · 50 分 2 秒')).toBeInTheDocument()
+      expect(document.querySelector('.compact-rounds')).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }
@@ -125,6 +138,24 @@ describe('timer and review workflows', () => {
     expect(screen.getByLabelText(/可以改进/)).toBeInTheDocument()
     expect(screen.getByLabelText(/明日计划/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '导出 Markdown' })).toBeInTheDocument()
+  })
+
+  it('uses a focused full-screen editor for reviews on narrow screens', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+    renderRoute('/review')
+    await screen.findByText('已保存在本机')
+
+    const field = screen.getByLabelText(/今日收获/)
+    fireEvent.click(field)
+    const editor = screen.getByLabelText('复盘专注编辑框')
+    fireEvent.change(editor, { target: { value: '手机长文草稿' } })
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(field).toHaveValue('')
+
+    fireEvent.click(field)
+    fireEvent.change(screen.getByLabelText('复盘专注编辑框'), { target: { value: '确认后的长文' } })
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    expect(field).toHaveValue('确认后的长文')
   })
 
   it('requires confirmation and immediately hides a deleted focus session', async () => {
@@ -226,6 +257,22 @@ describe('data import workflows', () => {
 
     expect(URL.createObjectURL).toHaveBeenCalledOnce()
     expect(await screen.findByText(/数据已合并/)).toBeInTheDocument()
+  })
+
+  it('keeps local data unchanged when the pre-import backup is cancelled', async () => {
+    vi.stubGlobal('showSaveFilePicker', vi.fn().mockRejectedValue(new DOMException('cancelled', 'AbortError')))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const imported = structuredClone(seedState)
+    imported.tasks[0].title = '不应覆盖的任务'
+    renderRoute('/settings')
+    await screen.findByText('已保存在本机')
+
+    fireEvent.change(screen.getByLabelText('选择 JSON 备份文件'), { target: { files: [backupFile(imported)] } })
+    fireEvent.click(await screen.findByRole('button', { name: '覆盖本地' }))
+    expect(await screen.findByText('已取消导入，当前数据没有变化。')).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('link', { name: '任务' })[0])
+    expect(await screen.findByText('完成产品原型的交互梳理')).toBeInTheDocument()
+    expect(screen.queryByText('不应覆盖的任务')).not.toBeInTheDocument()
   })
 
   it('shows both readable versions, full JSON, and a tombstone warning before conflict choice', async () => {
