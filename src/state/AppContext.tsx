@@ -51,7 +51,7 @@ function normalizedTimer(state: AppState, now: number): TimerState {
     runStartedAt: state.timer.status === 'running' ? (state.timer.runStartedAt ?? new Date(now).toISOString()) : undefined,
   }
   const currentElapsed = elapsedAt(timer, now)
-  return { ...timer, elapsedSeconds: currentElapsed, runStartedAt: timer.status === 'running' ? new Date(now).toISOString() : undefined, remainingSeconds: Math.max(0, durationSeconds - currentElapsed) }
+  return { ...timer, liveElapsedSeconds: currentElapsed, remainingSeconds: Math.max(0, durationSeconds - currentElapsed) }
 }
 
 function normalizeState(state: AppState, now = Date.now()): AppState {
@@ -89,6 +89,7 @@ function finishTimer(state: AppState, now: number, allowPartial = false): AppSta
       status: allowPartial ? 'idle' : 'finished',
       remainingSeconds: allowPartial ? state.timer.durationSeconds : 0,
       elapsedSeconds: allowPartial ? 0 : state.timer.durationSeconds,
+      liveElapsedSeconds: allowPartial ? 0 : elapsed,
       startedAt: undefined,
       runStartedAt: undefined,
       rounds: state.timer.rounds + (session ? 1 : 0),
@@ -139,25 +140,25 @@ export function appReducer(state: AppState, action: Action): AppState {
       const next = { ...state, settings: { ...state.settings, ...action.settings } }
       if (state.timer.status !== 'idle') return next
       const durationSeconds = phaseSeconds(next, state.timer.phase)
-      return { ...next, timer: { ...state.timer, durationSeconds, elapsedSeconds: 0, remainingSeconds: durationSeconds } }
+      return { ...next, timer: { ...state.timer, durationSeconds, elapsedSeconds: 0, liveElapsedSeconds: 0, remainingSeconds: durationSeconds } }
     }
     case 'TIMER_START': {
       if (state.timer.status === 'running') return state
       const now = action.now ?? new Date().toISOString()
-      return { ...state, timer: { ...state.timer, status: 'running', startedAt: state.timer.startedAt ?? now, runStartedAt: now } }
+      return { ...state, timer: { ...state.timer, status: 'running', startedAt: state.timer.startedAt ?? now, runStartedAt: now, liveElapsedSeconds: state.timer.elapsedSeconds } }
     }
     case 'TIMER_PAUSE': {
       if (state.timer.status !== 'running') return state
       const elapsedSeconds = elapsedAt(state.timer, Date.parse(action.now ?? new Date().toISOString()))
-      return { ...state, timer: { ...state.timer, status: 'paused', elapsedSeconds, remainingSeconds: Math.max(0, state.timer.durationSeconds - elapsedSeconds), runStartedAt: undefined } }
+      return { ...state, timer: { ...state.timer, status: 'paused', elapsedSeconds, liveElapsedSeconds: elapsedSeconds, remainingSeconds: Math.max(0, state.timer.durationSeconds - elapsedSeconds), runStartedAt: undefined } }
     }
     case 'TIMER_RESET': {
       const durationSeconds = phaseSeconds(state, state.timer.phase)
-      return { ...state, timer: { ...state.timer, status: 'idle', remainingSeconds: durationSeconds, durationSeconds, elapsedSeconds: 0, startedAt: undefined, runStartedAt: undefined } }
+      return { ...state, timer: { ...state.timer, status: 'idle', remainingSeconds: durationSeconds, durationSeconds, elapsedSeconds: 0, liveElapsedSeconds: 0, startedAt: undefined, runStartedAt: undefined } }
     }
     case 'SET_TIMER_PHASE': {
       const durationSeconds = phaseSeconds(state, action.phase)
-      return { ...state, timer: { ...state.timer, phase: action.phase, status: 'idle', remainingSeconds: durationSeconds, durationSeconds, elapsedSeconds: 0, startedAt: undefined, runStartedAt: undefined } }
+      return { ...state, timer: { ...state.timer, phase: action.phase, status: 'idle', remainingSeconds: durationSeconds, durationSeconds, elapsedSeconds: 0, liveElapsedSeconds: 0, startedAt: undefined, runStartedAt: undefined } }
     }
     case 'TIMER_TICK': {
       if (state.timer.status !== 'running') return state
@@ -165,7 +166,7 @@ export function appReducer(state: AppState, action: Action): AppState {
       const elapsedSeconds = elapsedAt(state.timer, now)
       return elapsedSeconds >= state.timer.durationSeconds && state.timer.phase !== 'focus'
         ? finishTimer(state, now)
-        : { ...state, timer: { ...state.timer, elapsedSeconds, runStartedAt: new Date(now).toISOString(), remainingSeconds: Math.max(0, state.timer.durationSeconds - elapsedSeconds) } }
+        : { ...state, timer: { ...state.timer, liveElapsedSeconds: elapsedSeconds, remainingSeconds: Math.max(0, state.timer.durationSeconds - elapsedSeconds) } }
     }
     case 'TIMER_FINISH': return finishTimer(state, Date.parse(action.now ?? new Date().toISOString()))
     case 'TIMER_END_EARLY': return finishTimer(state, Date.parse(action.now ?? new Date().toISOString()), true)

@@ -12,6 +12,7 @@ export interface TimerState {
   remainingSeconds: number
   durationSeconds: number
   elapsedSeconds: number
+  liveElapsedSeconds?: number
   startedAt?: string
   runStartedAt?: string
   taskId?: string

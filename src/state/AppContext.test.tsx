@@ -108,6 +108,7 @@ describe('appReducer', () => {
     const afterResume = appReducer(resumed, { type: 'TIMER_TICK', now: '2026-08-09T10:01:00.000Z' })
 
     expect(synced.timer.remainingSeconds).toBe(23 * 60)
+    expect(synced.timer.liveElapsedSeconds).toBe(2 * 60)
     expect(paused.timer.elapsedSeconds).toBe(2 * 60)
     expect(afterResume.timer.remainingSeconds).toBe(22 * 60)
   })
@@ -132,7 +133,7 @@ describe('appReducer', () => {
     const overtime = appReducer(started, { type: 'TIMER_TICK', now: '2026-08-09T09:30:00.000Z' })
     const ended = appReducer(overtime, { type: 'TIMER_END_EARLY', now: '2026-08-09T09:31:00.000Z' })
 
-    expect(overtime.timer).toMatchObject({ status: 'running', remainingSeconds: 0, elapsedSeconds: 1800 })
+    expect(overtime.timer).toMatchObject({ status: 'running', remainingSeconds: 0, elapsedSeconds: 0, liveElapsedSeconds: 1800 })
     expect(ended.sessions.at(-1)).toMatchObject({ seconds: 1860, minutes: 31 })
   })
 
@@ -143,10 +144,23 @@ describe('appReducer', () => {
       vi.setSystemTime(new Date('2026-08-09T09:40:00.000Z'))
       const hydrated = appReducer(seedState, { type: 'HYDRATE', state: started })
 
-      expect(hydrated.timer).toMatchObject({ status: 'running', remainingSeconds: 0, elapsedSeconds: 2400 })
+      expect(hydrated.timer).toMatchObject({ status: 'running', remainingSeconds: 0, elapsedSeconds: 0, liveElapsedSeconds: 2400 })
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('does not lose fractions when timer callbacks repeatedly arrive before a full second', () => {
+    const startedAt = Date.parse('2026-08-11T07:47:32.387Z')
+    let running = appReducer(seedState, { type: 'TIMER_START', now: new Date(startedAt).toISOString() })
+    for (let tick = 1; tick <= 1352; tick += 1) {
+      running = appReducer(running, { type: 'TIMER_TICK', now: new Date(startedAt + tick * 999).toISOString() })
+    }
+    const ended = appReducer(running, { type: 'TIMER_END_EARLY', now: '2026-08-11T08:10:04.043Z' })
+
+    expect(running.timer.elapsedSeconds).toBe(0)
+    expect(running.timer.liveElapsedSeconds).toBe(1350)
+    expect(ended.sessions.at(-1)).toMatchObject({ seconds: 1351, minutes: 23 })
   })
 
   it('records an early focus with exact seconds and a minimum of one displayed minute', () => {
