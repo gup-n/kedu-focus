@@ -4,6 +4,8 @@ import {
   calculateStatistics,
   getStatisticsRange,
   selectedAverageSeconds,
+  shanghaiDateKey,
+  shanghaiIsoString,
   shiftStatisticsRange,
 } from './statistics'
 
@@ -25,6 +27,14 @@ function stateWithSleep(sleep: AppState['sleep']) {
 }
 
 describe('statistics ranges', () => {
+  it('maps UTC timestamps to the UTC+8 calendar date used by the app', () => {
+    const instant = new Date('2026-08-11T16:05:06.000Z')
+
+    expect(shanghaiDateKey(instant)).toBe('2026-08-12')
+    expect(shanghaiIsoString(instant)).toBe('2026-08-12T00:05:06+08:00')
+    expect(Date.parse(shanghaiIsoString(instant))).toBe(instant.getTime())
+  })
+
   it('uses Monday-first weeks and calendar month/year ranges', () => {
     expect(getStatisticsRange('week', '2026-08-09')).toEqual({ start: '2026-08-03', end: '2026-08-09' })
     expect(getStatisticsRange('month', '2024-02-10')).toEqual({ start: '2024-02-01', end: '2024-02-29' })

@@ -215,6 +215,7 @@ function StorageProbe() {
       <button onClick={() => dispatch({ type: 'TIMER_START', now: '2026-08-09T09:00:00.000Z' })}>start</button>
       <button onClick={() => dispatch({ type: 'TIMER_TICK', now: '2026-08-09T09:00:02.000Z' })}>tick</button>
       <button onClick={() => dispatch({ type: 'TIMER_PAUSE', now: '2026-08-09T09:00:02.000Z' })}>pause</button>
+      <button onClick={() => dispatch({ type: 'TIMER_END_EARLY', now: '2026-08-09T09:00:12.000Z' })}>end focus</button>
       <button onClick={() => dispatch({ type: 'DELETE_SESSION', id: 's1', now: '2026-08-10T10:00:00.000Z' })}>delete session</button>
     </div>
   )
@@ -273,6 +274,30 @@ describe('AppProvider persistence', () => {
     expect(vi.mocked(repository.save).mock.calls[0][0].timer).toMatchObject({
       status: 'paused',
       remainingSeconds: seedState.timer.remainingSeconds - 2,
+    })
+  })
+
+  it('starts persisting a completed focus immediately without a debounce window', async () => {
+    const repository: Repository = {
+      load: vi.fn(async () => structuredClone(seedState)),
+      save: vi.fn(async () => undefined),
+    }
+    render(<AppProvider repository={repository}><StorageProbe /></AppProvider>)
+
+    await waitFor(() => expect(repository.save).toHaveBeenCalled())
+    vi.mocked(repository.save).mockClear()
+
+    await act(async () => { screen.getByRole('button', { name: 'start' }).click() })
+    await waitFor(() => expect(repository.save).toHaveBeenCalled())
+    vi.mocked(repository.save).mockClear()
+
+    await act(async () => { screen.getByRole('button', { name: 'end focus' }).click() })
+
+    expect(repository.save).toHaveBeenCalledOnce()
+    expect(vi.mocked(repository.save).mock.calls[0][0].sessions.at(-1)).toMatchObject({
+      startedAt: '2026-08-09T09:00:00.000Z',
+      endedAt: '2026-08-09T09:00:12.000Z',
+      seconds: 12,
     })
   })
 

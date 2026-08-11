@@ -220,23 +220,22 @@ export function AppProvider({ children, repository: suppliedRepository }: { chil
 
     const revision = ++saveRevision.current
     let cancelled = false
-    const timeout = window.setTimeout(() => {
+    queueMicrotask(() => {
       if (!cancelled) setStorageStatus('saving')
-      const snapshot = structuredClone(latestState.current)
-      saveQueue.current = saveQueue.current
-        .catch(() => undefined)
-        .then(() => repository.save(snapshot))
-      void saveQueue.current
-        .then(() => {
-          if (!cancelled && revision === saveRevision.current) setStorageStatus('saved')
-        })
-        .catch(() => {
-          if (!cancelled && revision === saveRevision.current) setStorageStatus('error')
-        })
-    }, 120)
+    })
+    const snapshot = structuredClone(latestState.current)
+    saveQueue.current = saveQueue.current
+      .catch(() => undefined)
+      .then(() => repository.save(snapshot))
+    void saveQueue.current
+      .then(() => {
+        if (!cancelled && revision === saveRevision.current) setStorageStatus('saved')
+      })
+      .catch(() => {
+        if (!cancelled && revision === saveRevision.current) setStorageStatus('error')
+      })
     return () => {
       cancelled = true
-      window.clearTimeout(timeout)
     }
   }, [
     hydrated,

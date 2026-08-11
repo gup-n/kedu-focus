@@ -1,4 +1,5 @@
 import type { AppState, FocusSession, Task } from './types'
+import { shanghaiIsoString } from '../utils/statistics'
 
 export const isActiveTask = (task: Task) => !task.deletedAt
 
@@ -23,5 +24,16 @@ export const isActiveSession = (session: FocusSession) => !session.deletedAt
 export const activeSessions = (state: Pick<AppState, 'sessions'>) => state.sessions.filter(isActiveSession)
 
 export function visibleAppState(state: AppState): AppState {
-  return { ...state, tasks: activeTasks(state), sessions: activeSessions(state) }
+  return {
+    ...state,
+    tasks: activeTasks(state).map(task => ({
+      ...task,
+      completedAt: task.completedAt ? shanghaiIsoString(new Date(task.completedAt)) : undefined,
+    })),
+    sessions: activeSessions(state).map(session => ({
+      ...session,
+      startedAt: shanghaiIsoString(new Date(session.startedAt)),
+      endedAt: shanghaiIsoString(new Date(session.endedAt)),
+    })),
+  }
 }

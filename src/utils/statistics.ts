@@ -74,6 +74,11 @@ export function shanghaiDateKey(value: Date | number = Date.now()) {
   return new Date(timestamp + SHANGHAI_OFFSET_MS).toISOString().slice(0, 10)
 }
 
+export function shanghaiIsoString(value: Date | number = Date.now()) {
+  const timestamp = typeof value === 'number' ? value : value.getTime()
+  return `${new Date(timestamp + SHANGHAI_OFFSET_MS).toISOString().slice(0, 19)}+08:00`
+}
+
 function validDateKey(date: string) {
   if (!DATE_PATTERN.test(date)) return false
   const { year, month, day } = parts(date)
