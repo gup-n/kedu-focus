@@ -14,6 +14,7 @@ import {
   type MergePlan,
 } from '../utils/backup'
 import { downloadCsv, type CsvKind } from '../utils/csv'
+import { WebDavSync } from './WebDavSync'
 
 function entitySummary(entity: Record<string, unknown>) {
   const values = [
@@ -154,7 +155,7 @@ export function DataManagement() {
       <ActionButton disabled={exporting} onClick={exportJson}><Download/> {exporting ? '正在处理…' : '导出 JSON 备份'}</ActionButton>
       <ActionButton onClick={() => input.current?.click()}><Upload/> 导入 JSON</ActionButton>
       <ActionButton onClick={() => setShowCsv(true)}><Files/> 导出 CSV</ActionButton>
-      <ActionButton onClick={() => setShowWebDav(true)}><Cloud/> WebDAV（后续）</ActionButton>
+      <ActionButton onClick={() => setShowWebDav(true)}><Cloud/> WebDAV 同步</ActionButton>
     </div>
     {notice && <p className="data-notice" role="status"><Check/> {notice}</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
@@ -165,10 +166,9 @@ export function DataManagement() {
       <div className="csv-options">{([['tasks', '任务'], ['sessions', '专注记录'], ['sleep', '睡眠记录']] as [CsvKind, string][]).map(([kind, label]) => <ActionButton key={kind} onClick={() => exportCsvFile(kind)}><Download/> 导出{label}</ActionButton>)}</div>
     </div></div>}
 
-    {showWebDav && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setShowWebDav(false)}><div className="dialog data-dialog">
+    {showWebDav && <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && setShowWebDav(false)}><div className="dialog data-dialog webdav-dialog">
       <div className="dialog-head"><h2>WebDAV 同步</h2><button onClick={() => setShowWebDav(false)} aria-label="关闭"><X/></button></div>
-      <div className="future-feature"><Cloud/><b>后续能力</b><p>当前版本不会连接或上传到任何服务器。请先使用 JSON 备份在设备间迁移。</p></div>
-      <ActionButton primary onClick={() => setShowWebDav(false)}>知道了</ActionButton>
+      <WebDavSync/>
     </div></div>}
 
     {envelope && preview && <div className="modal-backdrop"><div className="dialog import-dialog">

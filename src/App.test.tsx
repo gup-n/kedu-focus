@@ -320,3 +320,77 @@ describe('data import workflows', () => {
     expect(screen.getByRole('button', { name: '应用合并' })).toBeDisabled()
   })
 })
+
+describe('WebDAV sync workflows', () => {
+  function openWebDav() {
+    fireEvent.click(screen.getByRole('button', { name: 'WebDAV 同步' }))
+    fireEvent.change(screen.getByLabelText('WebDAV 服务器目录地址'), { target: { value: 'https://dav.example.com/files/me/' } })
+    fireEvent.change(screen.getByLabelText('WebDAV 用户名'), { target: { value: 'me' } })
+    fireEvent.change(screen.getByLabelText('WebDAV 密码'), { target: { value: 'secret' } })
+  }
+
+  it('tests the connection and stores credentials only in this browser', async () => {
+    localStorage.clear()
+    const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 404 }))
+    vi.stubGlobal('fetch', fetcher)
+    renderRoute('/settings')
+    await screen.findByText('已保存在本机')
+    openWebDav()
+
+    fireEvent.click(screen.getByRole('button', { name: '测试连接' }))
+
+    expect(await screen.findByText(/连接成功，远端目录中还没有/)).toBeInTheDocument()
+    expect(localStorage.getItem('kedu-focus-webdav-config-v1')).toContain('dav.example.com')
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates a remote backup on the first sync', async () => {
+    localStorage.clear()
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 404 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204, headers: { etag: '"created"' } }))
+    vi.stubGlobal('fetch', fetcher)
+    renderRoute('/settings')
+    await screen.findByText('已保存在本机')
+    openWebDav()
+
+    fireEvent.click(screen.getByRole('button', { name: '立即同步' }))
+
+    expect(await screen.findByText(/首次同步完成/)).toBeInTheDocument()
+    expect(fetcher.mock.calls.map(call => (call[1] as RequestInit).method)).toEqual(['GET', 'PUT'])
+    expect((fetcher.mock.calls[1][1] as RequestInit).headers).toMatchObject({ 'If-None-Match': '*' })
+  })
+
+  it('requires an explicit version choice when the remote data differs', async () => {
+    localStorage.clear()
+    const cloud = structuredClone(seedState)
+    cloud.tasks[0].title = '云端版本的任务'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(createBackupEnvelope(cloud)), { status: 200, headers: { etag: '"cloud"' } })))
+    renderRoute('/settings')
+    await screen.findByText('已保存在本机')
+    openWebDav()
+
+    fireEvent.click(screen.getByRole('button', { name: '立即同步' }))
+
+    expect(await screen.findByRole('region', { name: '选择同步版本' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /使用云端/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /使用本机/ })).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables data transfer while a focus timer is active', async () => {
+    localStorage.clear()
+    const running = structuredClone(seedState)
+    running.timer.status = 'running'
+    running.timer.startedAt = new Date().toISOString()
+    running.timer.runStartedAt = running.timer.startedAt
+    renderRoute('/settings', running)
+    await screen.findByText('已保存在本机')
+    fireEvent.click(screen.getByRole('button', { name: 'WebDAV 同步' }))
+
+    expect(screen.getByText(/计时进行中/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '立即同步' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /拉取云端/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /上传本机/ })).toBeDisabled()
+  })
+})
