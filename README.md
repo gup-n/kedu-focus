@@ -59,6 +59,7 @@
 - 计时偏好：专注/短休息/长休息时长、长休息间隔。
 - 分类管理：新增、改名、改色、停用/启用。
 - 数据管理：JSON 备份导入导出、CSV 导出、清空所有数据。
+- 同步：可连接个人 WebDAV；仓库同时提供只在个人局域网运行的 WSL HTTPS 同步服务。
 - PWA：安装应用、申请浏览器持久存储。
 
 ## 数据与隐私
@@ -69,7 +70,8 @@
 - **CSV 导出**：任务、专注记录、睡眠记录可导出为 UTF-8 BOM 的 CSV，可直接用 Excel 打开。
 - 清除浏览器站点数据会删除全部记录，请定期导出 JSON 备份。
 - WebDAV 是可选的手动同步：地址、用户名和密码只保存在当前浏览器，不会写入 JSON 备份。远端内容不同时必须手动选择版本，拉取前会先导出本机备份。
-- WebDAV 服务器需要允许浏览器跨域访问（CORS）；公开网络建议仅使用 HTTPS。
+- 仓库内置的局域网同步服务器运行于个人 WSL，数据只写入指定本机目录，不要求公共云，也不应配置路由器公网端口转发。
+- GitHub Pages 是 HTTPS 页面，因此局域网同步服务器同样使用 HTTPS，并显式允许刻度页面跨域访问。
 
 ## 技术栈
 
@@ -78,6 +80,7 @@
 - 图表：Recharts
 - PWA：vite-plugin-pwa（Workbox，Service Worker 更新由用户确认，避免打断计时）
 - 存储：IndexedDB（仓库抽象支持内存实现，便于测试）
+- 可选局域网服务：Python 3.12 标准库 + WSL 2，无第三方运行依赖
 - 测试：Vitest + Testing Library + jsdom
 - 代码规范：ESLint（typescript-eslint）
 
@@ -98,6 +101,10 @@ npm run build      # 类型检查并构建到 dist/
 npm run preview    # 本地预览构建产物
 npm run lint       # ESLint 检查
 npm run test       # 运行测试（-- --run 为单次执行）
+
+# 在 WSL 中测试可选的局域网同步服务器
+cd sync-server
+python3 -m unittest -v test_server.py
 ```
 
 ## 目录结构
@@ -123,6 +130,7 @@ src/
 │   └── AppContext.tsx        # 全局状态、reducer、防抖自动保存、主题与计时器心跳
 ├── test/                     # 测试环境配置
 └── utils/                    # 统计、睡眠、备份、CSV、复盘 Markdown 导出
+sync-server/                  # 个人 WSL 局域网 HTTPS 同步服务、证书脚本与部署说明
 ```
 
 核心数据模型见 `src/domain/types.ts`：任务、分类、专注记录、每日复盘、睡眠记录、计时器状态与应用设置。
@@ -136,9 +144,10 @@ src/
 ## 路线图
 
 - WebDAV 自动同步与更细粒度的记录合并（手动上传、拉取和冲突保护已完成）。
-- 局域网同步（同一 Wi-Fi 下可选启用）。
+- 局域网服务的一键安装、状态检测和备份轮换（基础 WSL HTTPS 服务已完成）。
 
 ## 相关文档
 
 - `专注计划助手-计划书.md`：产品计划书与分期验收标准。
 - `Github发布及更新.md`：GitHub Pages 发布与更新流程。
+- `sync-server/README.md`：个人局域网同步服务器部署与证书说明。

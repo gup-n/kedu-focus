@@ -1,0 +1,18 @@
+[Unit]
+Description=Kedu personal LAN sync server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/PATH/TO/TaskPlaning/sync-server
+ExecStart=/PATH/TO/TaskPlaning/sync-server/start-server.sh
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/YOUR_USER/.local/share/kedu-focus-sync
+
+[Install]
+WantedBy=multi-user.target
