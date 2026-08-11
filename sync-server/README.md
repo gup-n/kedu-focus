@@ -11,6 +11,26 @@
 - 默认只允许 `https://gup-n.github.io`、本地 Vite 开发地址跨域访问。
 - 数据、密码、私钥和证书均被 `.gitignore` 排除，不会上传 GitHub。
 
+## Windows 一键启动（当前推荐）
+
+双击：
+
+```text
+start-windows.bat
+```
+
+首次运行会请求管理员权限，自动检测 WLAN 地址、生成或更新服务器证书、导入 Windows CA、配置仅限本地子网的 8443 防火墙规则，并创建随机同步密码。保持窗口打开即可持续提供同步。
+
+停止服务请双击：
+
+```text
+stop-windows.bat
+```
+
+停止脚本通过 `data/kedu-sync.pid` 精确识别本项目的 Python 进程。不要只关闭窗口或在任务管理器中随意结束父 PowerShell；停止脚本会同时确认 PID 文件已移除且 8443 不再监听。
+
+如果启动时提示端口已经占用，先运行 `stop-windows.bat`，再重新运行 `start-windows.bat`。启动窗口会显示当前局域网地址、用户名、密码和需要安装到 Android 的 CA 文件。
+
 ## 1. 准备固定局域网地址
 
 建议在路由器中为这台 Windows 电脑设置 DHCP 地址保留，例如 `192.168.1.20`。后续证书与手机中的 WebDAV 地址都使用这个固定 IP。

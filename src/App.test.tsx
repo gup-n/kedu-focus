@@ -331,7 +331,7 @@ describe('WebDAV sync workflows', () => {
 
   it('tests the connection and stores credentials only in this browser', async () => {
     localStorage.clear()
-    const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 404 }))
+    const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 404, headers: { 'x-kedu-sync-server': '1', 'x-kedu-sync-empty': '1' } }))
     vi.stubGlobal('fetch', fetcher)
     renderRoute('/settings')
     await screen.findByText('已保存在本机')
@@ -347,7 +347,7 @@ describe('WebDAV sync workflows', () => {
   it('creates a remote backup on the first sync', async () => {
     localStorage.clear()
     const fetcher = vi.fn()
-      .mockResolvedValueOnce(new Response('', { status: 404 }))
+      .mockResolvedValueOnce(new Response('', { status: 404, headers: { 'x-kedu-sync-server': '1', 'x-kedu-sync-empty': '1' } }))
       .mockResolvedValueOnce(new Response(null, { status: 204, headers: { etag: '"created"' } }))
     vi.stubGlobal('fetch', fetcher)
     renderRoute('/settings')

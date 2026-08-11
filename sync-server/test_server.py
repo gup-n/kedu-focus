@@ -74,6 +74,24 @@ class SyncServerTests(unittest.TestCase):
         connection.request("GET", "/kedu-focus-backup.json", headers={"Origin": "https://gup-n.github.io"})
         response = connection.getresponse()
         self.assertEqual(response.status, 401)
+        self.assertEqual(response.getheader("X-Kedu-Sync-Server"), "1")
+        connection.close()
+
+    def test_identifies_a_running_server_even_before_the_first_upload(self):
+        status, headers, _ = self.request("GET")
+        self.assertEqual(status, 404)
+        self.assertEqual(headers["X-Kedu-Sync-Server"], "1")
+        self.assertEqual(headers["X-Kedu-Sync-Empty"], "1")
+        self.assertEqual(headers["Access-Control-Expose-Headers"], "ETag, Last-Modified, X-Kedu-Sync-Server, X-Kedu-Sync-Empty")
+
+    def test_wrong_filename_is_not_reported_as_an_empty_backup(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
+        auth = base64.b64encode(b"kedu:secret").decode()
+        connection.request("GET", "/wrong.json", headers={"Authorization": f"Basic {auth}", "Origin": "https://gup-n.github.io"})
+        response = connection.getresponse()
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.getheader("X-Kedu-Sync-Server"), "1")
+        self.assertIsNone(response.getheader("X-Kedu-Sync-Empty"))
         connection.close()
 
     def test_creates_reads_and_conditionally_updates_the_backup(self):

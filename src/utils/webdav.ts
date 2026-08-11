@@ -25,6 +25,8 @@ export interface WebDavSyncMeta {
 export const WEBDAV_CONFIG_KEY = 'kedu-focus-webdav-config-v1'
 export const WEBDAV_META_KEY = 'kedu-focus-webdav-meta-v1'
 export const DEFAULT_WEBDAV_FILENAME = 'kedu-focus-backup.json'
+export const KEDU_SYNC_SERVER_HEADER = 'x-kedu-sync-server'
+export const KEDU_SYNC_EMPTY_HEADER = 'x-kedu-sync-empty'
 
 export class WebDavError extends Error {
   constructor(message: string, public readonly status?: number) {
@@ -116,8 +118,15 @@ function responseError(response: Response): WebDavError {
 
 export async function inspectWebDav(config: WebDavConfig): Promise<{ exists: boolean; etag?: string; lastModified?: string }> {
   const response = await request(config, { method: 'GET', headers: { Accept: 'application/json' } })
-  if (response.status === 404) return { exists: false }
+  if (response.status === 404) {
+    if (response.headers.get(KEDU_SYNC_SERVER_HEADER) === '1' && response.headers.get(KEDU_SYNC_EMPTY_HEADER) === '1') return { exists: false }
+    throw new WebDavError('地址返回了 404，但无法确认这是刻度同步服务。请检查服务器地址、端口和远端文件名。', response.status)
+  }
   if (!response.ok) throw responseError(response)
+  try { parseBackupJson(await response.text()) }
+  catch (reason) {
+    throw new WebDavError(reason instanceof Error ? `地址可以访问，但远端文件不是有效的刻度备份：${reason.message}` : '地址可以访问，但远端文件不是有效的刻度备份。')
+  }
   return {
     exists: true,
     etag: response.headers.get('etag') ?? undefined,
@@ -127,7 +136,10 @@ export async function inspectWebDav(config: WebDavConfig): Promise<{ exists: boo
 
 export async function downloadWebDav(config: WebDavConfig): Promise<WebDavRemote | null> {
   const response = await request(config, { method: 'GET', headers: { Accept: 'application/json' } })
-  if (response.status === 404) return null
+  if (response.status === 404) {
+    if (response.headers.get(KEDU_SYNC_SERVER_HEADER) === '1' && response.headers.get(KEDU_SYNC_EMPTY_HEADER) === '1') return null
+    throw new WebDavError('地址返回了 404，但不是可识别的刻度同步服务。请先使用“测试连接”检查配置。', response.status)
+  }
   if (!response.ok) throw responseError(response)
   let envelope: BackupEnvelope
   try { envelope = parseBackupJson(await response.text()) }

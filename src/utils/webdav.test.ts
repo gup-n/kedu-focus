@@ -30,12 +30,34 @@ describe('WebDAV transport', () => {
   })
 
   it('treats a missing remote file as a successful connection', async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 404 }))
+    const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 404, headers: { 'x-kedu-sync-server': '1', 'x-kedu-sync-empty': '1' } }))
     vi.stubGlobal('fetch', fetcher)
 
     await expect(inspectWebDav(config)).resolves.toEqual({ exists: false })
     expect(fetcher).toHaveBeenCalledWith(webDavTarget(config), expect.objectContaining({ method: 'GET', cache: 'no-store' }))
     expect((fetcher.mock.calls[0][1].headers as Record<string, string>).Authorization).toMatch(/^Basic /)
+  })
+
+  it('does not mistake an unrelated 404 page for a running sync server', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('not found', { status: 404 })))
+
+    await expect(inspectWebDav(config)).rejects.toThrow('无法确认这是刻度同步服务')
+    await expect(downloadWebDav(config)).rejects.toThrow('不是可识别的刻度同步服务')
+  })
+
+  it('does not mistake a wrong filename on the Kedu server for an empty backup', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('not found', { status: 404, headers: { 'x-kedu-sync-server': '1' } })))
+    await expect(inspectWebDav(config)).rejects.toThrow('远端文件名')
+  })
+
+  it('reports a stopped or unreachable server as a connection failure', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('connection refused')))
+    await expect(inspectWebDav(config)).rejects.toThrow('无法连接 WebDAV')
+  })
+
+  it('validates an existing remote file while testing the connection', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>not a backup</html>', { status: 200 })))
+    await expect(inspectWebDav(config)).rejects.toThrow('远端文件不是有效的刻度备份')
   })
 
   it('downloads and validates a remote backup', async () => {

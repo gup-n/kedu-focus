@@ -2,3 +2,5 @@
 certs/
 data/
 __pycache__/
+*.log
+SESSION_HANDOFF.md

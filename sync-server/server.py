@@ -29,6 +29,9 @@ from urllib.parse import quote, urlsplit
 MAX_BACKUP_BYTES = 8 * 1024 * 1024
 BACKUP_FORMAT = "focus-planner-backup"
 SCHEMA_VERSION = 1
+SERVER_ID_HEADER = "X-Kedu-Sync-Server"
+SERVER_ID = "1"
+SERVER_EMPTY_HEADER = "X-Kedu-Sync-Empty"
 
 
 @dataclass(frozen=True)
@@ -55,6 +58,10 @@ class SyncConfig:
     @property
     def request_path(self) -> str:
         return f"/{quote(self.filename)}"
+
+    @property
+    def pid_file(self) -> Path:
+        return self.data_dir / "kedu-sync.pid"
 
 
 def config_from_environment() -> SyncConfig:
@@ -126,13 +133,14 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
             if origin and origin.rstrip("/") in config.allowed_origins:
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Vary", "Origin")
-                self.send_header("Access-Control-Expose-Headers", "ETag, Last-Modified")
+                self.send_header("Access-Control-Expose-Headers", f"ETag, Last-Modified, {SERVER_ID_HEADER}, {SERVER_EMPTY_HEADER}")
 
         def _send(self, status: HTTPStatus, body: bytes = b"", content_type: str = "text/plain; charset=utf-8", extra: dict[str, str] | None = None) -> None:
             self.send_response(status)
             self._cors_headers()
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header(SERVER_ID_HEADER, SERVER_ID)
             if body:
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(body)))
@@ -166,6 +174,7 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
                 self.send_response(HTTPStatus.UNAUTHORIZED)
                 self._cors_headers()
                 self.send_header("WWW-Authenticate", 'Basic realm="Kedu LAN Sync", charset="UTF-8"')
+                self.send_header(SERVER_ID_HEADER, SERVER_ID)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return False
@@ -183,6 +192,7 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
             self.send_header("Access-Control-Allow-Methods", "GET, PUT, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match, If-None-Match")
             self.send_header("Access-Control-Max-Age", "7200")
+            self.send_header(SERVER_ID_HEADER, SERVER_ID)
             if self.headers.get("Access-Control-Request-Private-Network") == "true":
                 self.send_header("Access-Control-Allow-Private-Network", "true")
             self.end_headers()
@@ -200,7 +210,12 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
                 content = config.data_file.read_bytes()
                 modified = config.data_file.stat().st_mtime
             except FileNotFoundError:
-                self._error(HTTPStatus.NOT_FOUND, "backup has not been created")
+                self._send(
+                    HTTPStatus.NOT_FOUND,
+                    json.dumps({"error": "backup has not been created"}).encode(),
+                    "application/json; charset=utf-8",
+                    {SERVER_EMPTY_HEADER: "1"},
+                )
                 return
             self._send(
                 HTTPStatus.OK,
@@ -277,15 +292,22 @@ def create_server(config: SyncConfig, *, use_tls: bool = True) -> ThreadingHTTPS
 def main() -> None:
     config = config_from_environment()
     server = create_server(config)
-    stop: Callable[[int, object], None] = lambda *_: threading.Thread(target=server.shutdown, daemon=True).start()
-    signal.signal(signal.SIGTERM, stop)
-    signal.signal(signal.SIGINT, stop)
-    print(f"Kedu LAN sync listening on https://{config.host}:{config.port}{config.request_path}")
-    print(f"Data file: {config.data_file}")
     try:
+        config.data_dir.mkdir(parents=True, exist_ok=True)
+        config.pid_file.write_text(str(os.getpid()), encoding="ascii")
+        stop: Callable[[int, object], None] = lambda *_: threading.Thread(target=server.shutdown, daemon=True).start()
+        signal.signal(signal.SIGTERM, stop)
+        signal.signal(signal.SIGINT, stop)
+        print(f"Kedu LAN sync listening on https://{config.host}:{config.port}{config.request_path}")
+        print(f"Data file: {config.data_file}")
         server.serve_forever()
     finally:
         server.server_close()
+        try:
+            if config.pid_file.read_text(encoding="ascii").strip() == str(os.getpid()):
+                config.pid_file.unlink()
+        except FileNotFoundError:
+            pass
 
 
 if __name__ == "__main__":
