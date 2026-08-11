@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PwaProvider } from './PwaContext'
 import { PwaSettings } from './PwaSettings'
@@ -9,14 +9,18 @@ const sw = vi.hoisted(() => ({
   setNeedRefresh: vi.fn(),
   setOfflineReady: vi.fn(),
   update: vi.fn(),
+  registered: undefined as ((url: string, registration?: ServiceWorkerRegistration) => void) | undefined,
 }))
 
 vi.mock('virtual:pwa-register/react', () => ({
-  useRegisterSW: () => ({
+  useRegisterSW: (options: { onRegisteredSW?: (url: string, registration?: ServiceWorkerRegistration) => void }) => {
+    sw.registered = options.onRegisteredSW
+    return {
     needRefresh: [sw.needRefresh, sw.setNeedRefresh],
     offlineReady: [sw.offlineReady, sw.setOfflineReady],
     updateServiceWorker: sw.update,
-  }),
+    }
+  },
 }))
 
 describe('PWA controls', () => {
@@ -28,6 +32,7 @@ describe('PWA controls', () => {
     sw.setNeedRefresh.mockReset()
     sw.setOfflineReady.mockReset()
     sw.update.mockReset()
+    sw.registered = undefined
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       value: vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
@@ -36,6 +41,7 @@ describe('PWA controls', () => {
       configurable: true,
       value: { persisted: vi.fn().mockResolvedValue(false), persist: vi.fn().mockResolvedValue(true) },
     })
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
   })
 
   it('offers the deferred browser install prompt', async () => {
@@ -71,5 +77,42 @@ describe('PWA controls', () => {
 
     await waitFor(() => expect(navigator.storage.persist).toHaveBeenCalledOnce())
     expect(screen.getByText(/已优先保留/)).toBeInTheDocument()
+  })
+
+  it('manually checks the service worker and reports the current version', async () => {
+    const registration = { update: vi.fn().mockResolvedValue(undefined), waiting: null, installing: null } as unknown as ServiceWorkerRegistration
+    render(<PwaProvider><PwaSettings /></PwaProvider>)
+    act(() => sw.registered?.('/sw.js', registration))
+
+    fireEvent.click(screen.getByRole('button', { name: '检查更新' }))
+
+    await waitFor(() => expect(registration.update).toHaveBeenCalledOnce())
+    expect(await screen.findByText('当前已是最新版本。')).toBeInTheDocument()
+    expect(screen.getByText(/上次检查/)).toBeInTheDocument()
+  })
+
+  it('turns the settings action into an explicit update after finding a waiting worker', async () => {
+    const registration = { update: vi.fn(), waiting: null as ServiceWorker | null, installing: null }
+    registration.update.mockImplementation(async () => { registration.waiting = {} as ServiceWorker })
+    render(<PwaProvider><PwaSettings /></PwaProvider>)
+    act(() => sw.registered?.('/sw.js', registration as unknown as ServiceWorkerRegistration))
+
+    fireEvent.click(screen.getByRole('button', { name: '检查更新' }))
+    expect(await screen.findByRole('button', { name: '立即更新' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '立即更新' }))
+
+    expect(sw.update).toHaveBeenCalledWith(true)
+  })
+
+  it('reports offline state without asking the service worker to update', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
+    const registration = { update: vi.fn(), waiting: null, installing: null } as unknown as ServiceWorkerRegistration
+    render(<PwaProvider><PwaSettings /></PwaProvider>)
+    act(() => sw.registered?.('/sw.js', registration))
+
+    fireEvent.click(screen.getByRole('button', { name: '检查更新' }))
+
+    expect(await screen.findByText(/当前处于离线状态/)).toBeInTheDocument()
+    expect(registration.update).not.toHaveBeenCalled()
   })
 })
