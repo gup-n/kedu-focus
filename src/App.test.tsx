@@ -6,6 +6,7 @@ import { MemoryRepository } from './data/repository'
 import { demoState as seedState } from './test/fixtures'
 import { AppProvider } from './state/AppContext'
 import { createBackupEnvelope } from './utils/backup'
+import { dateKeyToShanghaiStart, shanghaiDateKey } from './utils/statistics'
 
 function renderRoute(route: string, state = seedState) {
   return render(
@@ -121,8 +122,7 @@ describe('timer and review workflows', () => {
 
     vi.useFakeTimers()
     try {
-      const currentDayAtNoon = new Date()
-      currentDayAtNoon.setHours(12, 0, 0, 0)
+      const currentDayAtNoon = new Date(dateKeyToShanghaiStart(shanghaiDateKey()) + 12 * 60 * 60 * 1000)
       vi.setSystemTime(currentDayAtNoon)
       fireEvent.click(screen.getByRole('button', { name: '开始专注' }))
       await act(async () => { vi.advanceTimersByTime(2_000) })
