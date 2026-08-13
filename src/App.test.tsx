@@ -20,6 +20,7 @@ function renderRoute(route: string, state = seedState) {
 
 afterEach(() => {
   cleanup()
+  localStorage.clear()
   vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
@@ -171,6 +172,23 @@ describe('timer and review workflows', () => {
     fireEvent.change(screen.getByLabelText('复盘专注编辑框'), { target: { value: '确认后的长文' } })
     fireEvent.click(screen.getByRole('button', { name: '确认' }))
     expect(field).toHaveValue('确认后的长文')
+  })
+
+  it('automatically persists a review after typing', async () => {
+    const repository = new MemoryRepository(seedState)
+    render(
+      <MemoryRouter initialEntries={['/review']}>
+        <AppProvider repository={repository}><App /></AppProvider>
+      </MemoryRouter>,
+    )
+    await screen.findByText('已保存在本机')
+
+    fireEvent.change(screen.getByLabelText(/今日收获/), { target: { value: '这段内容无需再点保存' } })
+
+    await waitFor(async () => {
+      const saved = await repository.load()
+      expect(saved.reviews.find(review => review.date === shanghaiDateKey())?.summary).toBe('这段内容无需再点保存')
+    }, { timeout: 3000 })
   })
 
   it('shows searchable history and week/month review summaries', async () => {
