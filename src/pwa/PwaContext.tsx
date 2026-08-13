@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, RefreshCw, X } from 'lucide-react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { PwaContext, type PwaContextValue, type UpdateCheckResult } from './PwaState'
+import { currentRelease, fetchLatestRelease, type ReleaseNote } from './releases'
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -13,6 +14,7 @@ interface NavigatorWithStandalone extends Navigator {
 }
 
 const updateCheckInterval = 60 * 60 * 1000
+const seenReleaseKey = 'kedu-focus-seen-release'
 
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || Boolean((navigator as NavigatorWithStandalone).standalone)
@@ -25,6 +27,11 @@ export function PwaProvider({ children }: { children: ReactNode }) {
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [detectedUpdate, setDetectedUpdate] = useState(false)
   const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null)
+  const [availableRelease, setAvailableRelease] = useState<ReleaseNote>(currentRelease)
+  const [showInstalledRelease, setShowInstalledRelease] = useState(() => {
+    const seen = localStorage.getItem(seenReleaseKey)
+    return seen !== currentRelease.version
+  })
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null)
   const {
     offlineReady: [offlineReady, setOfflineReady],
@@ -56,6 +63,10 @@ export function PwaProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('appinstalled', onInstalled)
     }
   }, [])
+
+  useEffect(() => {
+    if (needRefresh) void fetchLatestRelease().then(setAvailableRelease)
+  }, [needRefresh])
 
   async function install() {
     if (!installPrompt) return false
@@ -96,6 +107,11 @@ export function PwaProvider({ children }: { children: ReactNode }) {
     await updateServiceWorker(true)
   }
 
+  function dismissInstalledRelease() {
+    localStorage.setItem(seenReleaseKey, currentRelease.version)
+    setShowInstalledRelease(false)
+  }
+
   const updateAvailable = needRefresh || detectedUpdate
 
   const value: PwaContextValue = {
@@ -115,15 +131,15 @@ export function PwaProvider({ children }: { children: ReactNode }) {
 
   return <PwaContext.Provider value={value}>
     {children}
-    {(needRefresh || offlineReady) && <aside className="pwa-notice" role="status" aria-live="polite">
+    {(needRefresh || offlineReady || showInstalledRelease) && <aside className="pwa-notice" role="status" aria-live="polite">
       <span className="pwa-notice-icon">{needRefresh ? <RefreshCw /> : <Check />}</span>
       <div>
-        <b>{needRefresh ? '新版本已经准备好' : '离线使用已准备好'}</b>
-        <p>{needRefresh ? '由你决定何时更新，不会打断正在进行的专注。' : '网络不稳定时，仍可打开刻度并查看本机数据。'}</p>
+        <b>{needRefresh ? `新版本 v${availableRelease.version} 已准备好` : showInstalledRelease ? `版本公告 · v${currentRelease.version}` : '离线使用已准备好'}</b>
+        <p>{needRefresh ? availableRelease.summary : showInstalledRelease ? currentRelease.summary : '网络不稳定时，仍可打开刻度并查看本机数据。'}</p>
       </div>
       {needRefresh && <button className="pwa-update" onClick={() => void applyUpdate()}>立即更新</button>}
-      <button className="pwa-dismiss" aria-label={needRefresh ? '稍后更新' : '关闭提示'} onClick={() => needRefresh ? setNeedRefresh(false) : setOfflineReady(false)}>
-        {needRefresh ? '稍后' : <X />}
+      <button className="pwa-dismiss" aria-label={needRefresh ? '稍后更新' : showInstalledRelease ? '知道了' : '关闭提示'} onClick={() => needRefresh ? setNeedRefresh(false) : showInstalledRelease ? dismissInstalledRelease() : setOfflineReady(false)}>
+        {needRefresh ? '稍后' : showInstalledRelease ? '知道了' : <X />}
       </button>
     </aside>}
   </PwaContext.Provider>

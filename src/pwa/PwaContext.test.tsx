@@ -27,6 +27,7 @@ describe('PWA controls', () => {
   afterEach(cleanup)
 
   beforeEach(() => {
+    localStorage.clear()
     sw.needRefresh = false
     sw.offlineReady = false
     sw.setNeedRefresh.mockReset()
@@ -64,7 +65,7 @@ describe('PWA controls', () => {
     sw.needRefresh = true
     render(<PwaProvider><div>应用内容</div></PwaProvider>)
 
-    expect(screen.getByText('新版本已经准备好')).toBeInTheDocument()
+    expect(screen.getByText(/新版本 v0\.5\.0 已准备好/)).toBeInTheDocument()
     expect(sw.update).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '立即更新' }))
     expect(sw.update).toHaveBeenCalledWith(true)
@@ -114,5 +115,27 @@ describe('PWA controls', () => {
 
     expect(await screen.findByText(/当前处于离线状态/)).toBeInTheDocument()
     expect(registration.update).not.toHaveBeenCalled()
+  })
+
+  it('keeps a readable release history in settings', async () => {
+    render(<PwaProvider><PwaSettings /></PwaProvider>)
+
+    expect(screen.getByText(/当前版本 v0\.5\.0/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '查看历史' }))
+
+    expect(screen.getByText('复盘不再怕忘记保存')).toBeInTheDocument()
+    expect(screen.getByText('局域网同步更安全')).toBeInTheDocument()
+    expect(screen.getByText(/复盘输入后自动保存/)).toBeInTheDocument()
+  })
+
+  it('announces each installed release once', () => {
+    const first = render(<PwaProvider><div>应用内容</div></PwaProvider>)
+    expect(screen.getByText('版本公告 · v0.5.0')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '知道了' }))
+    expect(screen.queryByText('版本公告 · v0.5.0')).not.toBeInTheDocument()
+
+    first.unmount()
+    render(<PwaProvider><div>再次打开</div></PwaProvider>)
+    expect(screen.queryByText('版本公告 · v0.5.0')).not.toBeInTheDocument()
   })
 })

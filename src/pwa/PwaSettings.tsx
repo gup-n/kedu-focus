@@ -1,10 +1,17 @@
-import { useState } from 'react'
-import { Download, HardDrive, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, Download, HardDrive, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react'
 import { usePwa } from './PwaState'
+import { currentRelease, fetchLatestRelease, releases, type ReleaseNote } from './releases'
 
 export function PwaSettings() {
   const { installed, installAvailable, install, isIos, storageSupported, persisted, updateAvailable, checkingUpdate, lastCheckedAt, requestPersistence, checkForUpdate, applyUpdate } = usePwa()
   const [message, setMessage] = useState('')
+  const [availableRelease, setAvailableRelease] = useState<ReleaseNote>(currentRelease)
+  const [historyOpen, setHistoryOpen] = useState(false)
+
+  useEffect(() => {
+    if (updateAvailable) void fetchLatestRelease().then(setAvailableRelease)
+  }, [updateAvailable])
 
   async function handleInstall() {
     const accepted = await install()
@@ -23,6 +30,7 @@ export function PwaSettings() {
       return
     }
     const result = await checkForUpdate()
+    if (result === 'available') setAvailableRelease(await fetchLatestRelease())
     setMessage({
       available: '发现新版本，点击“立即更新”即可应用。',
       current: '当前已是最新版本。',
@@ -57,6 +65,21 @@ export function PwaSettings() {
       <div><b>{updateAvailable ? '发现可用的新版本' : '检查应用更新'}</b><p>{updateAvailable ? '新版本已下载完成，由你决定何时重新打开应用。' : lastCheckedAt ? `上次检查：${new Date(lastCheckedAt).toLocaleString('zh-CN')}` : '主动查询最新版本，减少浏览器缓存造成的更新延迟。'}</p></div>
       <button className={`btn ${updateAvailable ? 'primary' : 'quiet'}`} disabled={checkingUpdate} onClick={() => void handleUpdate()}><RefreshCw className={checkingUpdate ? 'checking-update' : ''}/> {checkingUpdate ? '正在检查…' : updateAvailable ? '立即更新' : '检查更新'}</button>
     </div>
+    {updateAvailable && <div className="available-release" aria-label="本次更新内容">
+      <span>v{availableRelease.version}</span>
+      <div><b>{availableRelease.title}</b><p>{availableRelease.summary}</p><ul>{availableRelease.changes.map(change=><li key={change}>{change}</li>)}</ul></div>
+    </div>}
     {message && <p className="pwa-message" role="status">{message}</p>}
+    <div className="release-history-head">
+      <div><b>更新历史</b><p>当前版本 v{currentRelease.version} · 每次发布都留下清晰的变化记录。</p></div>
+      <button className="text-btn" aria-expanded={historyOpen} onClick={()=>setHistoryOpen(value=>!value)}>{historyOpen?'收起历史':'查看历史'}</button>
+    </div>
+    {historyOpen&&<ol className="release-ruler">
+      {releases.map((release,index)=><li key={release.version}>
+        <span className="release-dot">{index===0?<Check/>:null}</span>
+        <div className="release-meta"><b>v{release.version}</b><time dateTime={release.date}>{release.date}</time></div>
+        <div className="release-copy"><h3>{release.title}</h3><p>{release.summary}</p><ul>{release.changes.map(change=><li key={change}>{change}</li>)}</ul></div>
+      </li>)}
+    </ol>}
   </section>
 }
