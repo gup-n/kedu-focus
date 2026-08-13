@@ -7,7 +7,8 @@
 - 仅接受刻度备份格式，单个文件最大 8 MiB。
 - 使用 Basic Authentication，因此必须配合 HTTPS。
 - 使用 `ETag`、`If-Match` 和 `If-None-Match` 防止设备之间静默覆盖。
-- 写入采用临时文件加原子替换；覆盖前保存 `kedu-focus-backup.previous.json`。
+- 写入采用临时文件加原子替换；覆盖前保存 `kedu-focus-backup.previous.json`，并在 `data/history/` 留下一份带 UTC 时间与内容摘要后缀的不可变历史版本。
+- 默认保留最近 50 个历史版本，可通过 `KEDU_SYNC_HISTORY_LIMIT` 调整；活动文件名始终保持 `kedu-focus-backup.json`。
 - 默认只允许 `https://gup-n.github.io`、本地 Vite 开发地址跨域访问。
 - 数据、密码、私钥和证书均被 `.gitignore` 排除，不会上传 GitHub。
 

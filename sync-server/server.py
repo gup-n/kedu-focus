@@ -18,6 +18,7 @@ import signal
 import ssl
 import tempfile
 import threading
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from email.utils import formatdate
 from http import HTTPStatus
@@ -32,6 +33,7 @@ SCHEMA_VERSION = 1
 SERVER_ID_HEADER = "X-Kedu-Sync-Server"
 SERVER_ID = "1"
 SERVER_EMPTY_HEADER = "X-Kedu-Sync-Empty"
+SERVER_ARCHIVE_HEADER = "X-Kedu-Sync-Archived-Version"
 
 
 @dataclass(frozen=True)
@@ -45,6 +47,7 @@ class SyncConfig:
     allowed_origins: frozenset[str]
     tls_cert: Path | None = None
     tls_key: Path | None = None
+    history_limit: int = 50
 
     @property
     def data_file(self) -> Path:
@@ -54,6 +57,10 @@ class SyncConfig:
     def previous_file(self) -> Path:
         path = Path(self.filename)
         return self.data_dir / f"{path.stem}.previous{path.suffix}"
+
+    @property
+    def history_dir(self) -> Path:
+        return self.data_dir / "history"
 
     @property
     def request_path(self) -> str:
@@ -89,6 +96,7 @@ def config_from_environment() -> SyncConfig:
         allowed_origins=origins,
         tls_cert=Path(cert).expanduser() if cert else None,
         tls_key=Path(key).expanduser() if key else None,
+        history_limit=max(1, int(os.environ.get("KEDU_SYNC_HISTORY_LIMIT", "50"))),
     )
 
 
@@ -115,6 +123,22 @@ def validate_backup(content: bytes) -> None:
         raise ValueError("backup settings and timer must be objects")
 
 
+def archive_version(config: SyncConfig, content: bytes) -> str:
+    """Store the replaced active backup as an immutable timestamped version."""
+    config.history_dir.mkdir(parents=True, exist_ok=True)
+    path = Path(config.filename)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    digest = hashlib.sha256(content).hexdigest()[:10]
+    filename = f"{path.stem}.{stamp}.{digest}{path.suffix}"
+    archive = config.history_dir / filename
+    archive.write_bytes(content)
+    os.chmod(archive, 0o600)
+    versions = sorted(config.history_dir.glob(f"{path.stem}.*{path.suffix}"), key=lambda item: item.stat().st_mtime, reverse=True)
+    for stale in versions[config.history_limit:]:
+        stale.unlink(missing_ok=True)
+    return filename
+
+
 def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
     write_lock = threading.Lock()
 
@@ -133,7 +157,7 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
             if origin and origin.rstrip("/") in config.allowed_origins:
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Vary", "Origin")
-                self.send_header("Access-Control-Expose-Headers", f"ETag, Last-Modified, {SERVER_ID_HEADER}, {SERVER_EMPTY_HEADER}")
+                self.send_header("Access-Control-Expose-Headers", f"ETag, Last-Modified, {SERVER_ID_HEADER}, {SERVER_EMPTY_HEADER}, {SERVER_ARCHIVE_HEADER}")
 
         def _send(self, status: HTTPStatus, body: bytes = b"", content_type: str = "text/plain; charset=utf-8", extra: dict[str, str] | None = None) -> None:
             self.send_response(status)
@@ -257,7 +281,9 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
                     return
 
                 config.data_dir.mkdir(parents=True, exist_ok=True)
+                archived_version = None
                 if current is not None:
+                    archived_version = archive_version(config, current)
                     shutil.copy2(config.data_file, config.previous_file)
                     os.chmod(config.previous_file, 0o600)
                 handle, temporary_name = tempfile.mkstemp(prefix=".kedu-sync-", suffix=".json", dir=config.data_dir)
@@ -271,7 +297,10 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
                 finally:
                     if os.path.exists(temporary_name):
                         os.unlink(temporary_name)
-            self._send(HTTPStatus.NO_CONTENT, extra={"ETag": etag_for(content)})
+            extra = {"ETag": etag_for(content)}
+            if archived_version:
+                extra[SERVER_ARCHIVE_HEADER] = archived_version
+            self._send(HTTPStatus.NO_CONTENT, extra=extra)
 
     return SyncHandler
 

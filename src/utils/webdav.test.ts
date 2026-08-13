@@ -73,14 +73,15 @@ describe('WebDAV transport', () => {
   })
 
   it('uses ETag preconditions while uploading to avoid overwriting a newer remote file', async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 204, headers: { etag: '"remote-2"' } }))
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 204, headers: { etag: '"remote-2"', 'x-kedu-sync-archived-version': 'backup.20260813.json' } }))
     vi.stubGlobal('fetch', fetcher)
 
-    await uploadWebDav(config, demoState, '"remote-1"')
+    const uploaded = await uploadWebDav(config, demoState, '"remote-1"')
     const init = fetcher.mock.calls[0][1] as RequestInit
     expect(init.method).toBe('PUT')
     expect(init.headers).toMatchObject({ 'If-Match': '"remote-1"', 'Content-Type': 'application/json; charset=utf-8' })
     expect(JSON.parse(String(init.body)).format).toBe('focus-planner-backup')
+    expect(uploaded.archivedVersion).toBe('backup.20260813.json')
   })
 
   it('reports a remote write race as a readable conflict', async () => {
