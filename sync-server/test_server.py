@@ -82,7 +82,7 @@ class SyncServerTests(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertEqual(headers["X-Kedu-Sync-Server"], "1")
         self.assertEqual(headers["X-Kedu-Sync-Empty"], "1")
-        self.assertEqual(headers["Access-Control-Expose-Headers"], "ETag, Last-Modified, X-Kedu-Sync-Server, X-Kedu-Sync-Empty")
+        self.assertEqual(headers["Access-Control-Expose-Headers"], "ETag, Last-Modified, X-Kedu-Sync-Server, X-Kedu-Sync-Empty, X-Kedu-Sync-Archived-Version")
 
     def test_wrong_filename_is_not_reported_as_an_empty_backup(self):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
@@ -112,8 +112,32 @@ class SyncServerTests(unittest.TestCase):
         status, headers, _ = self.request("PUT", second, {"If-Match": first_etag})
         self.assertEqual(status, 204)
         self.assertEqual(headers["ETag"], etag_for(second))
+        self.assertIn("X-Kedu-Sync-Archived-Version", headers)
         self.assertEqual(self.config.previous_file.read_bytes(), first)
         self.assertEqual(self.config.data_file.read_bytes(), second)
+        versions = list(self.config.history_dir.glob("kedu-focus-backup.*.json"))
+        self.assertEqual(len(versions), 1)
+        self.assertEqual(versions[0].read_bytes(), first)
+
+    def test_prunes_timestamped_history_to_the_configured_limit(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+        self.config = SyncConfig(**{**self.config.__dict__, "history_limit": 2})
+        self.server = create_server(self.config, use_tls=False)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.port = self.server.server_address[1]
+
+        current_etag = None
+        for title in ("one", "two", "three", "four"):
+            content = backup(title)
+            request_headers = {"If-None-Match": "*"} if current_etag is None else {"If-Match": current_etag}
+            status, response_headers, _ = self.request("PUT", content, request_headers)
+            self.assertEqual(status, 204)
+            current_etag = response_headers["ETag"]
+
+        self.assertEqual(len(list(self.config.history_dir.glob("kedu-focus-backup.*.json"))), 2)
 
     def test_rejects_invalid_backup_and_unlisted_origin(self):
         status, _, _ = self.request("PUT", b"{}")

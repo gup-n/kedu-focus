@@ -12,6 +12,7 @@ export interface WebDavRemote {
   envelope: BackupEnvelope
   etag?: string
   lastModified?: string
+  archivedVersion?: string
 }
 
 export interface WebDavSyncMeta {
@@ -27,6 +28,7 @@ export const WEBDAV_META_KEY = 'kedu-focus-webdav-meta-v1'
 export const DEFAULT_WEBDAV_FILENAME = 'kedu-focus-backup.json'
 export const KEDU_SYNC_SERVER_HEADER = 'x-kedu-sync-server'
 export const KEDU_SYNC_EMPTY_HEADER = 'x-kedu-sync-empty'
+export const KEDU_SYNC_ARCHIVE_HEADER = 'x-kedu-sync-archived-version'
 
 export class WebDavError extends Error {
   constructor(message: string, public readonly status?: number) {
@@ -150,6 +152,7 @@ export async function downloadWebDav(config: WebDavConfig): Promise<WebDavRemote
     envelope,
     etag: response.headers.get('etag') ?? undefined,
     lastModified: response.headers.get('last-modified') ?? undefined,
+    archivedVersion: response.headers.get(KEDU_SYNC_ARCHIVE_HEADER) ?? undefined,
   }
 }
 
@@ -168,6 +171,7 @@ export async function uploadWebDav(config: WebDavConfig, state: AppState, etag?:
     envelope,
     etag: response.headers.get('etag') ?? undefined,
     lastModified: response.headers.get('last-modified') ?? undefined,
+    archivedVersion: response.headers.get(KEDU_SYNC_ARCHIVE_HEADER) ?? undefined,
   }
 }
 

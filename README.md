@@ -151,3 +151,4 @@ sync-server/                  # 个人 WSL 局域网 HTTPS 同步服务、证书
 - `专注计划助手-计划书.md`：产品计划书与分期验收标准。
 - `Github发布及更新.md`：GitHub Pages 发布与更新流程。
 - `sync-server/README.md`：个人局域网同步服务器部署与证书说明。
+墓碑增长与后续安全压缩方案见 [数据保留与墓碑压缩规划](docs/data-retention.md)。在多设备同步水位完成前，应用不会擅自物理清除删除记录。

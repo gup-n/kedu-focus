@@ -68,6 +68,7 @@ if (-not (Test-Path -LiteralPath $envFile)) {
         "KEDU_SYNC_PORT=8443"
         "KEDU_SYNC_DATA_DIR=$dataDir"
         "KEDU_SYNC_FILENAME=kedu-focus-backup.json"
+        "KEDU_SYNC_HISTORY_LIMIT=50"
         "KEDU_SYNC_USERNAME=kedu"
         "KEDU_SYNC_PASSWORD=$password"
         "KEDU_SYNC_ALLOWED_ORIGINS=https://gup-n.github.io,http://localhost:5173,http://127.0.0.1:5173"

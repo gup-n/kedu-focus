@@ -43,9 +43,10 @@ describe('task and category workflows', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '新建任务' }))
     fireEvent.change(screen.getByLabelText('任务标题'), { target: { value: '测试任务' } })
-    fireEvent.change(screen.getByLabelText('计划日期'), { target: { value: '2026-08-12' } })
+    const planDate = '2026-08-15'
+    fireEvent.change(screen.getByLabelText('计划日期'), { target: { value: planDate } })
 
-    expect(screen.getByLabelText('截止日期')).toHaveValue('2026-08-12')
+    expect(screen.getByLabelText('截止日期')).toHaveValue(planDate)
 
     fireEvent.click(screen.getByRole('button', { name: '新建分类' }))
     fireEvent.change(screen.getByLabelText('新分类名称'), { target: { value: '健康' } })
@@ -54,7 +55,7 @@ describe('task and category workflows', () => {
     expect(screen.getByLabelText('任务分类')).not.toHaveValue('')
     fireEvent.click(screen.getByRole('button', { name: '创建任务' }))
     expect(await screen.findByText('测试任务')).toBeInTheDocument()
-    expect(screen.getByText(/健康 · 计划 08-12 · 截止 08-12/)).toBeInTheDocument()
+    expect(screen.getByText(/健康 · 计划 08-15 · 截止 08-15/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '编辑任务：测试任务' }))
     fireEvent.change(screen.getByLabelText('任务标题'), { target: { value: '修改后的任务' } })
@@ -62,7 +63,7 @@ describe('task and category workflows', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存修改' }))
 
     expect(await screen.findByText('修改后的任务')).toBeInTheDocument()
-    expect(screen.getByText(/计划 08-12 · 截止 08-15/)).toBeInTheDocument()
+    expect(screen.getByText(/计划 08-15 · 截止 08-15/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '删除任务：修改后的任务' }))
     expect(window.confirm).toHaveBeenCalledOnce()
@@ -87,6 +88,7 @@ describe('task and category workflows', () => {
     fireEvent.change(screen.getByLabelText('任务标题'), { target: { value: '每周整理' } })
     fireEvent.change(screen.getByLabelText('重复规则'), { target: { value: 'weekly' } })
     fireEvent.click(screen.getByRole('button', { name: '创建任务' }))
+    fireEvent.click(screen.getByRole('button', { name: /重复任务/ }))
     fireEvent.click(await screen.findByRole('button', { name: '查看任务：每周整理' }))
 
     expect(screen.getByText('每周同一天')).toBeInTheDocument()
@@ -339,13 +341,14 @@ describe('WebDAV sync workflows', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '测试连接' }))
 
-    expect(await screen.findByText(/连接成功，远端目录中还没有/)).toBeInTheDocument()
+    expect(await screen.findByText(/连接成功，远端还没有/)).toBeInTheDocument()
     expect(localStorage.getItem('kedu-focus-webdav-config-v1')).toContain('dav.example.com')
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
 
-  it('creates a remote backup on the first sync', async () => {
+  it('requires confirmation before creating the first remote backup', async () => {
     localStorage.clear()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const fetcher = vi.fn()
       .mockResolvedValueOnce(new Response('', { status: 404, headers: { 'x-kedu-sync-server': '1', 'x-kedu-sync-empty': '1' } }))
       .mockResolvedValueOnce(new Response(null, { status: 204, headers: { etag: '"created"' } }))
@@ -354,9 +357,12 @@ describe('WebDAV sync workflows', () => {
     await screen.findByText('已保存在本机')
     openWebDav()
 
-    fireEvent.click(screen.getByRole('button', { name: '立即同步' }))
+    fireEvent.click(screen.getByRole('button', { name: '检查并同步' }))
 
-    expect(await screen.findByText(/首次同步完成/)).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '确认首次上传' })).toBeInTheDocument()
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: '确认首次上传' }))
+    expect(await screen.findByText(/首份云端备份已创建/)).toBeInTheDocument()
     expect(fetcher.mock.calls.map(call => (call[1] as RequestInit).method)).toEqual(['GET', 'PUT'])
     expect((fetcher.mock.calls[1][1] as RequestInit).headers).toMatchObject({ 'If-None-Match': '*' })
   })
@@ -370,11 +376,12 @@ describe('WebDAV sync workflows', () => {
     await screen.findByText('已保存在本机')
     openWebDav()
 
-    fireEvent.click(screen.getByRole('button', { name: '立即同步' }))
+    fireEvent.click(screen.getByRole('button', { name: '检查并同步' }))
 
-    expect(await screen.findByRole('region', { name: '选择同步版本' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /使用云端/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /使用本机/ })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '同步差异预览' })).toBeInTheDocument()
+    expect(screen.getByText(/标题：云端版本的任务/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /云端覆盖本机/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /本机覆盖云端/ })).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
@@ -389,8 +396,8 @@ describe('WebDAV sync workflows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'WebDAV 同步' }))
 
     expect(screen.getByText(/计时进行中/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '立即同步' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /拉取云端/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /上传本机/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '检查并同步' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /检查云端下载/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /检查云端上传/ })).toBeDisabled()
   })
 })
