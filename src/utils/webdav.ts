@@ -23,6 +23,23 @@ export interface WebDavSyncMeta {
   etag?: string
 }
 
+export interface WebDavHistoryCounts {
+  tasks: number
+  categories: number
+  sessions: number
+  reviews: number
+  sleep: number
+}
+
+export interface WebDavHistoryVersion {
+  id: string
+  archivedAt: string
+  exportedAt: string
+  sizeBytes: number
+  etag: string
+  counts: WebDavHistoryCounts
+}
+
 export const WEBDAV_CONFIG_KEY = 'kedu-focus-webdav-config-v1'
 export const WEBDAV_META_KEY = 'kedu-focus-webdav-meta-v1'
 export const DEFAULT_WEBDAV_FILENAME = 'kedu-focus-backup.json'
@@ -86,6 +103,12 @@ export function webDavTarget(config: WebDavConfig): string {
   return url.toString()
 }
 
+export function webDavHistoryTarget(config: WebDavConfig): string {
+  const url = new URL(webDavTarget(config))
+  url.pathname = `${url.pathname}.history`
+  return url.toString()
+}
+
 function authorization(config: WebDavConfig) {
   const bytes = new TextEncoder().encode(`${config.username}:${config.password}`)
   let binary = ''
@@ -93,10 +116,10 @@ function authorization(config: WebDavConfig) {
   return `Basic ${btoa(binary)}`
 }
 
-async function request(config: WebDavConfig, init: RequestInit): Promise<Response> {
+async function request(config: WebDavConfig, init: RequestInit, target = webDavTarget(config)): Promise<Response> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new WebDavError('当前处于离线状态，连接网络后再同步。')
   try {
-    return await fetch(webDavTarget(config), {
+    return await fetch(target, {
       ...init,
       cache: 'no-store',
       headers: {
@@ -107,6 +130,55 @@ async function request(config: WebDavConfig, init: RequestInit): Promise<Respons
   } catch (reason) {
     if (reason instanceof WebDavError) throw reason
     throw new WebDavError('无法连接 WebDAV。请检查地址、网络，以及服务器是否允许浏览器跨域访问（CORS）。')
+  }
+}
+
+function validHistoryVersion(value: unknown): value is WebDavHistoryVersion {
+  if (!value || typeof value !== 'object') return false
+  const version = value as Partial<WebDavHistoryVersion>
+  const counts = version.counts as Partial<WebDavHistoryCounts> | undefined
+  return typeof version.id === 'string'
+    && typeof version.archivedAt === 'string'
+    && typeof version.exportedAt === 'string'
+    && typeof version.sizeBytes === 'number'
+    && typeof version.etag === 'string'
+    && Boolean(counts)
+    && ['tasks', 'categories', 'sessions', 'reviews', 'sleep'].every(key => typeof counts?.[key as keyof WebDavHistoryCounts] === 'number')
+}
+
+export async function listWebDavHistory(config: WebDavConfig): Promise<WebDavHistoryVersion[]> {
+  const response = await request(config, { method: 'GET', headers: { Accept: 'application/json' } }, webDavHistoryTarget(config))
+  if (response.status === 404) {
+    if (response.headers.get(KEDU_SYNC_SERVER_HEADER) === '1') throw new WebDavError('当前同步服务还不支持历史版本，请重启或更新局域网同步服务。', response.status)
+    throw new WebDavError('历史地址返回了 404，但无法确认这是刻度同步服务。请先测试连接。', response.status)
+  }
+  if (!response.ok) throw responseError(response)
+  try {
+    const payload: unknown = await response.json()
+    if (!payload || typeof payload !== 'object' || !Array.isArray((payload as { versions?: unknown }).versions)) throw new Error('历史清单格式无效')
+    const versions = (payload as { versions: unknown[] }).versions
+    if (!versions.every(validHistoryVersion)) throw new Error('历史版本信息不完整')
+    return versions
+  } catch (reason) {
+    throw new WebDavError(reason instanceof Error ? `无法读取云端历史清单：${reason.message}` : '无法读取云端历史清单。')
+  }
+}
+
+export async function downloadWebDavHistory(config: WebDavConfig, version: WebDavHistoryVersion): Promise<WebDavRemote> {
+  if (!version.id || /[\\/]/.test(version.id)) throw new WebDavError('历史版本标识无效。')
+  const target = `${webDavHistoryTarget(config).replace(/\/$/, '')}/${encodeURIComponent(version.id)}`
+  const response = await request(config, { method: 'GET', headers: { Accept: 'application/json' } }, target)
+  if (response.status === 404) throw new WebDavError('这个历史版本已不存在，可能已超出服务器保留数量。', response.status)
+  if (!response.ok) throw responseError(response)
+  let envelope: BackupEnvelope
+  try { envelope = parseBackupJson(await response.text()) }
+  catch (reason) {
+    throw new WebDavError(reason instanceof Error ? `历史版本不是有效的刻度备份：${reason.message}` : '历史版本不是有效的刻度备份。')
+  }
+  return {
+    envelope,
+    etag: response.headers.get('etag') ?? version.etag,
+    lastModified: response.headers.get('last-modified') ?? undefined,
   }
 }
 

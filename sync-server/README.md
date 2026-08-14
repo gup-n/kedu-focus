@@ -9,6 +9,7 @@
 - 使用 `ETag`、`If-Match` 和 `If-None-Match` 防止设备之间静默覆盖。
 - 写入采用临时文件加原子替换；覆盖前保存 `kedu-focus-backup.previous.json`，并在 `data/history/` 留下一份带 UTC 时间与内容摘要后缀的不可变历史版本。
 - 默认保留最近 50 个历史版本，可通过 `KEDU_SYNC_HISTORY_LIMIT` 调整；活动文件名始终保持 `kedu-focus-backup.json`。
+- 设置页可通过受认证的只读历史接口列出、比较和下载这些版本；历史恢复只修改本机，服务器不会直接把旧版本设为活动文件。
 - 默认只允许 `https://gup-n.github.io`、本地 Vite 开发地址跨域访问。
 - 数据、密码、私钥和证书均被 `.gitignore` 排除，不会上传 GitHub。
 
@@ -96,6 +97,15 @@ sudo systemctl enable --now kedu-focus-sync
 ```
 
 电脑关机、休眠或服务停止期间，刻度仍会继续把数据保存在手机和电脑本地；服务器恢复后再手动同步。
+
+历史接口与活动文件使用同一组 Basic Auth 和 CORS 规则：
+
+```text
+GET /kedu-focus-backup.json.history
+GET /kedu-focus-backup.json.history/{历史版本文件名}
+```
+
+第一个接口只返回版本时间、大小、摘要和记录数量，第二个接口只读下载指定快照；均不接受写入。
 
 ## 测试
 

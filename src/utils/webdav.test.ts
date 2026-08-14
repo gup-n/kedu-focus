@@ -3,10 +3,13 @@ import { demoState } from '../test/fixtures'
 import { createBackupEnvelope } from './backup'
 import {
   DEFAULT_WEBDAV_FILENAME,
+  downloadWebDavHistory,
   downloadWebDav,
   inspectWebDav,
+  listWebDavHistory,
   stateFingerprint,
   uploadWebDav,
+  webDavHistoryTarget,
   webDavTarget,
   type WebDavConfig,
 } from './webdav'
@@ -70,6 +73,32 @@ describe('WebDAV transport', () => {
     const remote = await downloadWebDav(config)
     expect(remote?.envelope.exportedAt).toBe('2026-08-11T09:00:00.000Z')
     expect(remote?.etag).toBe('"remote-1"')
+  })
+
+  it('lists and downloads a selected immutable history version', async () => {
+    const envelope = createBackupEnvelope(demoState, '2026-08-10T09:00:00.000Z')
+    const version = {
+      id: 'kedu-focus-backup.20260810T090000Z.abc123.json',
+      archivedAt: '2026-08-11T10:00:00.000Z',
+      exportedAt: envelope.exportedAt,
+      sizeBytes: 2048,
+      etag: '"history-1"',
+      counts: { tasks: 4, categories: 4, sessions: 5, reviews: 1, sleep: 1 },
+    }
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ versions: [version] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(envelope), { status: 200, headers: { etag: '"history-1"' } }))
+    vi.stubGlobal('fetch', fetcher)
+
+    await expect(listWebDavHistory(config)).resolves.toEqual([version])
+    await expect(downloadWebDavHistory(config, version)).resolves.toMatchObject({ envelope, etag: '"history-1"' })
+    expect(fetcher.mock.calls[0][0]).toBe(webDavHistoryTarget(config))
+    expect(fetcher.mock.calls[1][0]).toContain('.history/kedu-focus-backup.')
+  })
+
+  it('explains when the personal sync server has not been updated for history', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 404, headers: { 'x-kedu-sync-server': '1' } })))
+    await expect(listWebDavHistory(config)).rejects.toThrow('重启或更新局域网同步服务')
   })
 
   it('uses ETag preconditions while uploading to avoid overwriting a newer remote file', async () => {
