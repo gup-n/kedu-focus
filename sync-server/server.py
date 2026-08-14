@@ -25,7 +25,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Callable
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 MAX_BACKUP_BYTES = 8 * 1024 * 1024
 BACKUP_FORMAT = "focus-planner-backup"
@@ -65,6 +65,10 @@ class SyncConfig:
     @property
     def request_path(self) -> str:
         return f"/{quote(self.filename)}"
+
+    @property
+    def history_request_path(self) -> str:
+        return f"{self.request_path}.history"
 
     @property
     def pid_file(self) -> Path:
@@ -139,6 +143,30 @@ def archive_version(config: SyncConfig, content: bytes) -> str:
     return filename
 
 
+def history_versions(config: SyncConfig) -> list[dict[str, object]]:
+    """Return newest-first metadata without exposing server filesystem paths."""
+    path = Path(config.filename)
+    versions: list[dict[str, object]] = []
+    for archive in sorted(config.history_dir.glob(f"{path.stem}.*{path.suffix}"), key=lambda item: item.stat().st_mtime, reverse=True):
+        try:
+            content = archive.read_bytes()
+            payload = json.loads(content.decode("utf-8"))
+            validate_backup(content)
+        except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        data = payload["data"]
+        modified = archive.stat().st_mtime
+        versions.append({
+            "id": archive.name,
+            "archivedAt": datetime.fromtimestamp(modified, timezone.utc).isoformat().replace("+00:00", "Z"),
+            "exportedAt": payload["exportedAt"],
+            "sizeBytes": len(content),
+            "etag": etag_for(content),
+            "counts": {key: len(data[key]) for key in ("tasks", "categories", "sessions", "reviews", "sleep")},
+        })
+    return versions
+
+
 def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
     write_lock = threading.Lock()
 
@@ -187,8 +215,12 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
                 return False
             return hmac.compare_digest(supplied, f"{config.username}:{config.password}")
 
-        def _guard(self) -> bool:
-            if urlsplit(self.path).path != config.request_path:
+        def _guard(self, *, history: bool = False) -> bool:
+            path = urlsplit(self.path).path
+            allowed = path == config.request_path
+            if history:
+                allowed = path == config.history_request_path or path.startswith(f"{config.history_request_path}/")
+            if not allowed:
                 self._error(HTTPStatus.NOT_FOUND, "not found")
                 return False
             if not self._origin_allowed():
@@ -205,7 +237,8 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
             return True
 
         def do_OPTIONS(self) -> None:
-            if urlsplit(self.path).path != config.request_path:
+            path = urlsplit(self.path).path
+            if path != config.request_path and path != config.history_request_path and not path.startswith(f"{config.history_request_path}/"):
                 self._error(HTTPStatus.NOT_FOUND, "not found")
                 return
             if not self._origin_allowed():
@@ -225,7 +258,48 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
             self._serve_backup()
 
         def do_GET(self) -> None:
-            self._serve_backup()
+            path = urlsplit(self.path).path
+            if path == config.request_path:
+                self._serve_backup()
+            elif path == config.history_request_path:
+                self._serve_history()
+            elif path.startswith(f"{config.history_request_path}/"):
+                self._serve_history_version()
+            else:
+                self._error(HTTPStatus.NOT_FOUND, "not found")
+
+        def _serve_history(self) -> None:
+            if not self._guard(history=True):
+                return
+            body = json.dumps({"versions": history_versions(config)}, ensure_ascii=False).encode("utf-8")
+            self._send(HTTPStatus.OK, body, "application/json; charset=utf-8")
+
+        def _serve_history_version(self) -> None:
+            if not self._guard(history=True):
+                return
+            raw_id = urlsplit(self.path).path.removeprefix(f"{config.history_request_path}/")
+            version_id = unquote(raw_id)
+            base = Path(config.filename)
+            if not version_id or Path(version_id).name != version_id or not version_id.startswith(f"{base.stem}.") or not version_id.endswith(base.suffix):
+                self._error(HTTPStatus.NOT_FOUND, "history version not found")
+                return
+            archive = config.history_dir / version_id
+            try:
+                content = archive.read_bytes()
+                modified = archive.stat().st_mtime
+                validate_backup(content)
+            except FileNotFoundError:
+                self._error(HTTPStatus.NOT_FOUND, "history version not found")
+                return
+            except (OSError, ValueError):
+                self._error(HTTPStatus.INTERNAL_SERVER_ERROR, "history version is unreadable")
+                return
+            self._send(
+                HTTPStatus.OK,
+                content,
+                "application/json; charset=utf-8",
+                {"ETag": etag_for(content), "Last-Modified": formatdate(modified, usegmt=True)},
+            )
 
         def _serve_backup(self) -> None:
             if not self._guard():

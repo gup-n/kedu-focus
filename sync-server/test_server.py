@@ -49,7 +49,7 @@ class SyncServerTests(unittest.TestCase):
         self.thread.join(timeout=2)
         self.temporary.cleanup()
 
-    def request(self, method, body=None, headers=None):
+    def request(self, method, body=None, headers=None, path="/kedu-focus-backup.json"):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
         auth = base64.b64encode(b"kedu:secret").decode()
         request_headers = {
@@ -57,7 +57,7 @@ class SyncServerTests(unittest.TestCase):
             "Origin": "https://gup-n.github.io",
             **(headers or {}),
         }
-        connection.request(method, "/kedu-focus-backup.json", body=body, headers=request_headers)
+        connection.request(method, path, body=body, headers=request_headers)
         response = connection.getresponse()
         result = response.status, dict(response.getheaders()), response.read()
         connection.close()
@@ -138,6 +138,42 @@ class SyncServerTests(unittest.TestCase):
             current_etag = response_headers["ETag"]
 
         self.assertEqual(len(list(self.config.history_dir.glob("kedu-focus-backup.*.json"))), 2)
+
+    def test_lists_and_downloads_immutable_history_versions(self):
+        first = backup("first")
+        status, headers, _ = self.request("PUT", first, {"If-None-Match": "*"})
+        self.assertEqual(status, 204)
+        second = backup("second")
+        status, _, _ = self.request("PUT", second, {"If-Match": headers["ETag"]})
+        self.assertEqual(status, 204)
+
+        status, headers, content = self.request("GET", path="/kedu-focus-backup.json.history")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["X-Kedu-Sync-Server"], "1")
+        manifest = json.loads(content)
+        self.assertEqual(len(manifest["versions"]), 1)
+        version = manifest["versions"][0]
+        self.assertEqual(version["counts"]["tasks"], 1)
+        self.assertEqual(version["counts"]["reviews"], 0)
+        self.assertEqual(version["sizeBytes"], len(first))
+        self.assertEqual(version["etag"], etag_for(first))
+
+        status, headers, content = self.request("GET", path=f"/kedu-focus-backup.json.history/{version['id']}")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["ETag"], etag_for(first))
+        self.assertEqual(content, first)
+
+    def test_history_endpoints_require_auth_and_reject_unknown_versions(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
+        connection.request("GET", "/kedu-focus-backup.json.history", headers={"Origin": "https://gup-n.github.io"})
+        response = connection.getresponse()
+        self.assertEqual(response.status, 401)
+        connection.close()
+
+        status, _, _ = self.request("GET", path="/kedu-focus-backup.json.history/missing.json")
+        self.assertEqual(status, 404)
+        status, _, _ = self.request("GET", path="/kedu-focus-backup.json.history/%2E%2E%2Fsecret.json")
+        self.assertEqual(status, 404)
 
     def test_rejects_invalid_backup_and_unlisted_origin(self):
         status, _, _ = self.request("PUT", b"{}")
