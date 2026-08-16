@@ -182,9 +182,9 @@ export function getBackupPreview(envelope: BackupEnvelope): BackupPreview {
 }
 
 function normalizedJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(normalizedJson).join(',')}]`
-  if (isObject(value)) return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${normalizedJson(value[key])}`).join(',')}}`
-  return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(item => item === undefined ? 'null' : normalizedJson(item)).join(',')}]`
+  if (isObject(value)) return `{${Object.keys(value).filter(key => value[key] !== undefined).sort().map(key => `${JSON.stringify(key)}:${normalizedJson(value[key])}`).join(',')}}`
+  return JSON.stringify(value) ?? 'null'
 }
 
 const conflictLabels: Record<EntityCollection, string> = { tasks: '任务', categories: '分类', sessions: '专注记录', reviews: '复盘', sleep: '睡眠记录' }

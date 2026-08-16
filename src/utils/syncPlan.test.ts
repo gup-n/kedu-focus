@@ -44,4 +44,53 @@ describe('sync plan', () => {
     expect(merged.settings.theme).toBe('dark')
     expect(merged.timer).toEqual(local.timer)
   })
+
+  it('does not mistake JSON-omitted optional fields for task conflicts', () => {
+    const local = structuredClone(demoState)
+    local.tasks = local.tasks.map(task => ({
+      ...task,
+      recurrence: undefined,
+      recurrenceSourceId: undefined,
+      updatedAt: undefined,
+      deletedAt: undefined,
+    }))
+    const remote = JSON.parse(JSON.stringify(local)) as typeof local
+
+    expect(buildSyncPlan(local, remote).differences).toEqual([])
+  })
+
+  it('treats default category state and record ids as semantic metadata', () => {
+    const local = structuredClone(demoState)
+    const remote = structuredClone(demoState)
+    local.categories[0].archived = false
+    remote.reviews[0].id = 'same-date-from-another-device'
+    remote.sleep[0].id = 'same-date-from-another-device'
+
+    expect(buildSyncPlan(local, remote).differences).toEqual([])
+  })
+
+  it('shows only the review when that is the only business content changed', () => {
+    const remote = JSON.parse(JSON.stringify(demoState)) as typeof demoState
+    const local = structuredClone(demoState)
+    local.tasks = local.tasks.map(task => ({ ...task, recurrence: undefined, completedAt: task.completedAt }))
+    local.categories = local.categories.map(category => ({ ...category, archived: false }))
+    local.reviews[0].summary = '电脑上新写的复盘内容'
+
+    const plan = buildSyncPlan(local, remote)
+
+    expect(syncDifferenceCounts(plan)).toEqual({ 'local-only': 0, 'remote-only': 0, changed: 1 })
+    expect(plan.differences).toHaveLength(1)
+    expect(plan.differences[0]).toMatchObject({ collection: 'reviews', kind: 'changed' })
+  })
+
+  it('still reports real task content changes after semantic normalization', () => {
+    const local = structuredClone(demoState)
+    const remote = JSON.parse(JSON.stringify(local)) as typeof local
+    remote.tasks[0].note = '云端确实修改了任务说明'
+
+    const plan = buildSyncPlan(local, remote)
+
+    expect(plan.differences).toHaveLength(1)
+    expect(plan.differences[0]).toMatchObject({ collection: 'tasks', entityKey: local.tasks[0].id, kind: 'changed' })
+  })
 })

@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PwaProvider } from './PwaContext'
 import { PwaSettings } from './PwaSettings'
+import { currentRelease } from './releases'
 
 const sw = vi.hoisted(() => ({
   needRefresh: false,
@@ -65,7 +66,7 @@ describe('PWA controls', () => {
     sw.needRefresh = true
     render(<PwaProvider><div>应用内容</div></PwaProvider>)
 
-    expect(screen.getByText(/新版本 v0\.6\.0 已准备好/)).toBeInTheDocument()
+    expect(screen.getByText(`新版本 v${currentRelease.version} 已准备好`)).toBeInTheDocument()
     expect(sw.update).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '立即更新' }))
     expect(sw.update).toHaveBeenCalledWith(true)
@@ -120,7 +121,7 @@ describe('PWA controls', () => {
   it('keeps a readable release history in settings', async () => {
     render(<PwaProvider><PwaSettings /></PwaProvider>)
 
-    expect(screen.getByText(/当前版本 v0\.6\.0/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`当前版本 v${currentRelease.version.replace('.', '\\.')}`))).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '查看历史' }))
 
     expect(screen.getByText('复盘不再怕忘记保存')).toBeInTheDocument()
@@ -130,12 +131,12 @@ describe('PWA controls', () => {
 
   it('announces each installed release once', () => {
     const first = render(<PwaProvider><div>应用内容</div></PwaProvider>)
-    expect(screen.getByText('版本公告 · v0.6.0')).toBeInTheDocument()
+    expect(screen.getByText(`版本公告 · v${currentRelease.version}`)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '知道了' }))
-    expect(screen.queryByText('版本公告 · v0.6.0')).not.toBeInTheDocument()
+    expect(screen.queryByText(`版本公告 · v${currentRelease.version}`)).not.toBeInTheDocument()
 
     first.unmount()
     render(<PwaProvider><div>再次打开</div></PwaProvider>)
-    expect(screen.queryByText('版本公告 · v0.6.0')).not.toBeInTheDocument()
+    expect(screen.queryByText(`版本公告 · v${currentRelease.version}`)).not.toBeInTheDocument()
   })
 })
