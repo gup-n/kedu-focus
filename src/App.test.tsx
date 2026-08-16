@@ -6,7 +6,7 @@ import { MemoryRepository } from './data/repository'
 import { demoState as seedState } from './test/fixtures'
 import { AppProvider } from './state/AppContext'
 import { createBackupEnvelope } from './utils/backup'
-import { dateKeyToShanghaiStart, shanghaiDateKey } from './utils/statistics'
+import { addShanghaiDays, dateKeyToShanghaiStart, shanghaiDateKey } from './utils/statistics'
 
 function renderRoute(route: string, state = seedState) {
   return render(
@@ -44,7 +44,7 @@ describe('task and category workflows', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '新建任务' }))
     fireEvent.change(screen.getByLabelText('任务标题'), { target: { value: '测试任务' } })
-    const planDate = '2026-08-15'
+    const planDate = addShanghaiDays(shanghaiDateKey(), 1)
     fireEvent.change(screen.getByLabelText('计划日期'), { target: { value: planDate } })
 
     expect(screen.getByLabelText('截止日期')).toHaveValue(planDate)
@@ -56,15 +56,15 @@ describe('task and category workflows', () => {
     expect(screen.getByLabelText('任务分类')).not.toHaveValue('')
     fireEvent.click(screen.getByRole('button', { name: '创建任务' }))
     expect(await screen.findByText('测试任务')).toBeInTheDocument()
-    expect(screen.getByText(/健康 · 计划 08-15 · 截止 08-15/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`健康 · 计划 ${planDate.slice(5)} · 截止 ${planDate.slice(5)}`))).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '编辑任务：测试任务' }))
     fireEvent.change(screen.getByLabelText('任务标题'), { target: { value: '修改后的任务' } })
-    fireEvent.change(screen.getByLabelText('截止日期'), { target: { value: '2026-08-15' } })
+    fireEvent.change(screen.getByLabelText('截止日期'), { target: { value: planDate } })
     fireEvent.click(screen.getByRole('button', { name: '保存修改' }))
 
     expect(await screen.findByText('修改后的任务')).toBeInTheDocument()
-    expect(screen.getByText(/计划 08-15 · 截止 08-15/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`计划 ${planDate.slice(5)} · 截止 ${planDate.slice(5)}`))).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '删除任务：修改后的任务' }))
     expect(window.confirm).toHaveBeenCalledOnce()
@@ -403,6 +403,23 @@ describe('WebDAV sync workflows', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
+  it('does not show a false conflict ledger for JSON-omitted optional task fields', async () => {
+    localStorage.clear()
+    const local = structuredClone(seedState)
+    local.tasks = local.tasks.map(task => ({ ...task, recurrence: undefined, recurrenceSourceId: undefined, deletedAt: undefined }))
+    local.categories = local.categories.map(category => ({ ...category, archived: false }))
+    const cloud = JSON.parse(JSON.stringify(local))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(createBackupEnvelope(cloud)), { status: 200, headers: { etag: '"cloud"' } })))
+    renderRoute('/settings', local)
+    await screen.findByText('已保存在本机')
+    openWebDav()
+
+    fireEvent.click(screen.getByRole('button', { name: '检查并同步' }))
+
+    expect(await screen.findByText(/任务、专注、复盘和睡眠已经一致/)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '同步差异预览' })).not.toBeInTheDocument()
+  })
+
   it('disables data transfer while a focus timer is active', async () => {
     localStorage.clear()
     const running = structuredClone(seedState)
@@ -415,7 +432,7 @@ describe('WebDAV sync workflows', () => {
 
     expect(screen.getByText(/计时进行中/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '检查并同步' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /检查云端下载/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /检查云端上传/ })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /检查云端下载/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /检查云端上传/ })).not.toBeInTheDocument()
   })
 })

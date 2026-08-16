@@ -14,7 +14,6 @@ import {
   listWebDavHistory,
   saveWebDavConfig,
   saveWebDavMeta,
-  stateFingerprint,
   uploadWebDav,
   webDavTarget,
   type WebDavConfig,
@@ -23,7 +22,7 @@ import {
 } from '../utils/webdav'
 
 type Activity = 'idle' | 'testing' | 'reading' | 'writing'
-type Intent = 'sync' | 'upload' | 'download' | 'history'
+type Intent = 'sync' | 'history'
 
 function errorMessage(reason: unknown) {
   return reason instanceof Error ? reason.message : 'WebDAV 操作失败，请稍后重试。'
@@ -130,25 +129,25 @@ export function WebDavSync() {
     finally { setActivity('idle') }
   }
 
-  async function previewSync(nextIntent: Intent) {
+  async function previewSync() {
     if (activeTimer) { setError('请先结束或重置当前计时，再进行数据同步。'); return }
-    setActivity('reading'); setError(''); setNotice(''); resetPreview(); setIntent(nextIntent)
+    setActivity('reading'); setError(''); setNotice(''); resetPreview(); setIntent('sync')
     try {
       persistConfig()
       const cloud = await downloadWebDav(config)
       if (!cloud) {
-        if (nextIntent === 'download') { setError('远端还没有刻度备份，无法拉取。'); return }
         setFirstUpload(true)
         setNotice('远端是空的。确认后才会创建第一份云端备份。')
         return
       }
-      if (stateFingerprint(cloud.envelope.data) === stateFingerprint(rawState)) {
+      const nextPlan = buildSyncPlan(rawState, cloud.envelope.data)
+      if (!nextPlan.differences.length && !nextPlan.settingsDiffer) {
         rememberSync(rawState, cloud.envelope.data, cloud.etag)
-        setNotice('本机与云端已经一致，没有需要同步的内容。')
+        setNotice('本机与云端的任务、专注、复盘和睡眠已经一致，没有需要同步的内容。')
         return
       }
       setRemote(cloud)
-      setPlan(buildSyncPlan(rawState, cloud.envelope.data))
+      setPlan(nextPlan)
       setNotice('已读取两端数据。请检查具体差异，再选择同步方式。')
     } catch (reason) { setError(errorMessage(reason)) }
     finally { setActivity('idle') }
@@ -275,7 +274,7 @@ export function WebDavSync() {
       <label>密码<span className="password-field"><input aria-label="WebDAV 密码" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={config.password} onChange={event => update('password', event.target.value)}/><button type="button" aria-label={showPassword ? '隐藏密码' : '显示密码'} onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff/> : <Eye/>}</button></span></label>
     </div>
 
-    <div className="webdav-help"><ShieldAlert/><p>所有同步操作都会先读取并展示差异。安全合并保留两端独有记录；覆盖操作必须再次确认。</p></div>
+    <div className="webdav-help"><ShieldAlert/><p>“检查并同步”只读取两端并展示差异，不会立即上传或下载。确认差异后，再选择合并或整份覆盖。</p></div>
     {activeTimer && <p className="webdav-warning" role="status">计时进行中：结束或重置计时后才能同步。</p>}
     {notice && <p className="data-notice" role="status"><CheckCircle2/> {notice}</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
@@ -296,9 +295,7 @@ export function WebDavSync() {
 
     <div className="webdav-actions">
       <button type="button" className="btn quiet" disabled={busy} onClick={() => void testConnection()}><Link2/> {activity === 'testing' ? '正在测试…' : '测试连接'}</button>
-      <button type="button" className="btn primary" disabled={busy || activeTimer} onClick={() => void previewSync('sync')}><RefreshCw/> {activity === 'reading' ? '正在读取两端…' : '检查并同步'}</button>
-      <button type="button" className="btn quiet" disabled={busy || activeTimer} onClick={() => void previewSync('download')}><CloudDownload/> 检查云端下载</button>
-      <button type="button" className="btn quiet" disabled={busy || activeTimer} onClick={() => void previewSync('upload')}><CloudUpload/> 检查云端上传</button>
+      <button type="button" className="btn primary" disabled={busy || activeTimer} onClick={() => void previewSync()}><RefreshCw/> {activity === 'reading' ? '正在读取两端…' : '检查并同步'}</button>
     </div>
 
     {firstUpload && <section className="sync-conflict first-upload" aria-label="确认首次上传">
@@ -307,7 +304,7 @@ export function WebDavSync() {
     </section>}
 
     {plan && remote && counts && <section className="sync-conflict sync-ledger" aria-label="同步差异预览">
-      <header><ArrowLeftRight/><div><b>{intent === 'history' ? '历史版本差异账本' : '同步差异账本'}</b><p>云端快照：{new Date(remote.envelope.exportedAt).toLocaleString('zh-CN')} · 当前操作：{intent === 'upload' ? '上传检查' : intent === 'download' ? '下载检查' : intent === 'history' ? '只读历史恢复' : '双向检查'}</p></div></header>
+      <header><ArrowLeftRight/><div><b>{intent === 'history' ? '历史版本差异账本' : '同步差异账本'}</b><p>云端快照：{new Date(remote.envelope.exportedAt).toLocaleString('zh-CN')} · 当前操作：{intent === 'history' ? '只读历史恢复' : '双向检查'}</p></div></header>
       <div className="sync-difference-counts"><span><b>{counts['local-only']}</b>仅本机</span><span><b>{counts['remote-only']}</b>仅云端</span><span><b>{counts.changed}</b>内容冲突</span></div>
       {plan.settingsDiffer && <p className="webdav-warning">两端计时设置不同。安全合并保留本机设置；整份覆盖则采用被选择的一端。</p>}
       <div className="sync-difference-list">{plan.differences.map(item => <article key={item.key} className={`difference-${item.kind}`}>

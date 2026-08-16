@@ -24,12 +24,27 @@ const collections: EntityCollection[] = ['tasks', 'categories', 'sessions', 'rev
 export const syncCollectionLabels: Record<EntityCollection, string> = { tasks: '任务', categories: '分类', sessions: '专注', reviews: '复盘', sleep: '睡眠' }
 
 function normalizedJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(normalizedJson).join(',')}]`
+  if (Array.isArray(value)) return `[${value.map(item => item === undefined ? 'null' : normalizedJson(item)).join(',')}]`
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>
-    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${normalizedJson(record[key])}`).join(',')}}`
+    return `{${Object.keys(record).filter(key => record[key] !== undefined).sort().map(key => `${JSON.stringify(key)}:${normalizedJson(record[key])}`).join(',')}}`
   }
-  return JSON.stringify(value)
+  return JSON.stringify(value) ?? 'null'
+}
+
+function comparableEntity(collection: EntityCollection, entity: ImportEntity): Record<string, unknown> {
+  const comparable = structuredClone(entity) as unknown as Record<string, unknown>
+  if (collection === 'categories') comparable.archived = comparable.archived === true
+  if (collection === 'reviews' || collection === 'sleep') delete comparable.id
+  if (collection === 'tasks' && comparable.recurrence && typeof comparable.recurrence === 'object') {
+    const recurrence = comparable.recurrence as Record<string, unknown>
+    if (Array.isArray(recurrence.weekdays)) recurrence.weekdays = [...recurrence.weekdays].sort((a, b) => Number(a) - Number(b))
+  }
+  return comparable
+}
+
+export function syncEntitiesEqual(collection: EntityCollection, left: ImportEntity, right: ImportEntity) {
+  return normalizedJson(comparableEntity(collection, left)) === normalizedJson(comparableEntity(collection, right))
 }
 
 function entityKey(collection: EntityCollection, entity: ImportEntity) {
@@ -55,7 +70,7 @@ function compareCollection(collection: EntityCollection, local: ImportEntity[], 
   for (const key of keys) {
     const localEntity = localMap.get(key)
     const remoteEntity = remoteMap.get(key)
-    if (localEntity && remoteEntity && normalizedJson(localEntity) === normalizedJson(remoteEntity)) continue
+    if (localEntity && remoteEntity && syncEntitiesEqual(collection, localEntity, remoteEntity)) continue
     const kind: SyncDifferenceKind = localEntity && remoteEntity ? 'changed' : localEntity ? 'local-only' : 'remote-only'
     const entity = localEntity ?? remoteEntity!
     differences.push({
@@ -95,7 +110,7 @@ function mergedCollection(collection: EntityCollection, local: ImportEntity[], r
       result.set(key, structuredClone(entity))
       continue
     }
-    if (normalizedJson(localEntity) === normalizedJson(entity)) continue
+    if (syncEntitiesEqual(collection, localEntity, entity)) continue
     const choice = choices[`${collection}:${key}`]
     if (!choice) throw new Error('还有内容不同的记录尚未选择。')
     if (choice === 'imported') result.set(key, structuredClone(entity))
