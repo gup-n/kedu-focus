@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { BedDouble, ChevronLeft, ChevronRight, Clock3, Moon, Play, Timer } from 'lucide-react'
 import { useApp } from '../state/AppContext'
 import {
@@ -65,24 +65,47 @@ function clock(minutes: number | null) {
   return `${String(Math.floor(minutes / 60) % 24).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
 }
 
+function clockFromIso(value: string) {
+  return value.slice(11, 16)
+}
+
+function noonPosition(minutes: number) {
+  return ((minutes - 12 * 60 + 24 * 60) % (24 * 60)) / (24 * 60) * 100
+}
+
+function sleepWindowSegments(bedtime: number | null, wake: number | null) {
+  if (bedtime === null || wake === null) return []
+  const start = noonPosition(bedtime)
+  let end = noonPosition(wake)
+  if (end <= start) end += 100
+  return end <= 100
+    ? [{ left: start, width: end - start }]
+    : [{ left: start, width: 100 - start }, { left: 0, width: end - 100 }]
+}
+
 function SleepStats({ sleep, onRecord }: { sleep: SleepStatistics; onRecord: () => void }) {
   const trend = sleep.trend.map(point => ({
     label: sleep.trendUnit === 'month' ? `${Number(point.key.slice(5, 7))}月` : `${Number(point.key.slice(5, 7))}/${Number(point.key.slice(8, 10))}`,
     hours: Math.round(point.seconds / 360) / 10,
   }))
-  const maxCoverage = Math.max(...sleep.hourlyCoverageSeconds, 1)
+  const typicalSegments = sleepWindowSegments(sleep.averageBedtimeMinutes, sleep.averageWakeMinutes)
+  const recommendedPercent = sleep.recordCount ? Math.round(sleep.recommendedNightCount / sleep.recordCount * 100) : 0
   return <section className="sleep-stats-section" aria-labelledby="sleep-stats-title">
     <div className="stats-section-head"><div><p className="eyebrow">睡眠恢复</p><h2 id="sleep-stats-title">让恢复也有迹可循</h2></div><button className="btn quiet" onClick={onRecord}><BedDouble/> 记录睡眠</button></div>
     {!sleep.recordCount ? <Card className="sleep-stats-empty"><Moon/><div><h3>这个周期还没有睡眠记录</h3><p>按起床日期记录一段主睡眠，就能看到平均时长、作息与睡眠覆盖时段。</p></div></Card> : <div className="stats-grid sleep-stats-grid">
       <Card title="睡眠概览" action={<span className="card-caption">{sleep.recordCount} 晚记录</span>}>
-        <div className="sleep-overview-grid"><div><span>平均时长</span><strong>{duration(sleep.averageDurationSeconds)}</strong></div><div><span>平均入睡</span><strong>{clock(sleep.averageBedtimeMinutes)}</strong></div><div><span>平均起床</span><strong>{clock(sleep.averageWakeMinutes)}</strong></div><div><span>平均评分</span><strong>{sleep.averageScore.toFixed(1)}<small> / 5</small></strong></div></div>
+        <div className="sleep-overview-grid"><div><span>平均时长</span><strong>{duration(sleep.averageDurationSeconds)}</strong></div><div><span>平均评分</span><strong>{sleep.averageScore.toFixed(1)}<small> / 5</small></strong></div><div><span>7—9 小时</span><strong>{recommendedPercent}<small> % 夜晚</small></strong></div><div><span>作息波动</span><strong>{sleep.timingDeviationMinutes}<small> 分钟</small></strong></div></div>
       </Card>
       <Card title="睡眠时长趋势" action={<span className="card-caption">按起床日</span>}>
-        <div className="chart" aria-label="睡眠时长趋势图"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trend}><defs><linearGradient id="sleepChartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#23b8b3" stopOpacity={.4}/><stop offset="1" stopColor="#23b8b3" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="4 6" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={20}/><YAxis hide/><Tooltip formatter={(value) => `${Number(value).toFixed(1)} 小时`}/><Area type="monotone" dataKey="hours" name="睡眠" stroke="#23b8b3" strokeWidth={3} fill="url(#sleepChartFill)"/></AreaChart></ResponsiveContainer></div>
+        <div className="chart" aria-label="睡眠时长趋势图"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trend} margin={{ left: -8, right: 8 }}><defs><linearGradient id="sleepChartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#23b8b3" stopOpacity={.4}/><stop offset="1" stopColor="#23b8b3" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="4 6" vertical={false}/><ReferenceArea y1={7} y2={9} fill="#23b8b3" fillOpacity={.08}/><XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={20}/><YAxis width={34} domain={[0, 12]} ticks={[0, 4, 8, 12]} axisLine={false} tickLine={false} tickFormatter={value => `${value}h`}/><Tooltip formatter={(value) => `${Number(value).toFixed(1)} 小时`}/><Area type="monotone" dataKey="hours" name="睡眠" stroke="#23b8b3" strokeWidth={3} fill="url(#sleepChartFill)" dot={{ r: 3, fill: '#23b8b3', strokeWidth: 0 }}/></AreaChart></ResponsiveContainer></div>
       </Card>
-      <Card title="睡眠时段" action={<span className="card-caption">0—24 点覆盖</span>} className="sleep-hours-card">
-        <div className="hour-grid sleep-hour-grid" aria-label="24 小时睡眠覆盖分布">{sleep.hourlyCoverageSeconds.map((seconds, hour) => <div key={hour} title={`${String(hour).padStart(2, '0')}:00 · 覆盖 ${duration(seconds)}`}><span style={{ opacity: seconds ? .18 + seconds / maxCoverage * .82 : .06 }}/><small>{hour % 3 === 0 ? String(hour).padStart(2, '0') : ''}</small></div>)}</div>
-        <p className="muted stats-time-note"><Moon/> 色块越深，代表更多睡眠覆盖了这个小时。</p>
+      <Card title="典型睡眠窗" action={<span className="card-caption">从中午到次日中午</span>} className="sleep-hours-card typical-sleep-card">
+        <div className="typical-window-copy"><div><span>平均入睡</span><strong>{clock(sleep.averageBedtimeMinutes)}</strong></div><p>平均睡眠区间</p><div><span>平均起床</span><strong>{clock(sleep.averageWakeMinutes)}</strong></div></div>
+        <div className="sleep-window-ruler" aria-label={`典型睡眠时段 ${clock(sleep.averageBedtimeMinutes)} 至 ${clock(sleep.averageWakeMinutes)}`}><div>{typicalSegments.map((segment, index) => <i key={index} style={{ left: `${segment.left}%`, width: `${segment.width}%` }}/>)}</div><span>12</span><span>18</span><span>00</span><span>06</span><span>12</span></div>
+        <p className="muted stats-time-note"><Moon/> 把一天从中午切开后，跨午夜的睡眠会成为一条连续时间带，比 0—24 点热力格更容易判断作息。</p>
+      </Card>
+      <Card title="最近几晚" action={<span className="card-caption">最长 {duration(sleep.longestDurationSeconds)} · 最短 {duration(sleep.shortestDurationSeconds)}</span>} className="sleep-recent-card">
+        <div className="sleep-night-list">{sleep.recentNights.map(night => <div key={night.id}><time>{shortDate(night.date)}</time><span>{clockFromIso(night.sleptAt)} → {clockFromIso(night.wokeAt)}</span><strong>{duration(night.durationSeconds)}</strong><em aria-label={`睡眠评分 ${night.score} 分`}>{Array.from({ length: 5 }, (_, index) => <i key={index} className={index < night.score ? 'filled' : ''}/>)}</em></div>)}</div>
       </Card>
     </div>}
   </section>
@@ -126,7 +149,7 @@ export default function StatsPage() {
     label: result.trendUnit === 'month'
       ? `${Number(point.key.slice(5, 7))}月`
       : `${Number(point.key.slice(5, 7))}/${Number(point.key.slice(8, 10))}`,
-    minutes: Math.round(point.seconds / 6) / 10,
+    hours: Math.round(point.seconds / 360) / 10,
   }))
   const maxHourly = Math.max(...result.hourlySeconds, 1)
 
@@ -152,11 +175,11 @@ export default function StatsPage() {
         <div className="bar-list">{result.categories.map(category => <div key={category.categoryId}><div><span><i style={{ background: category.color }}/>{category.name}</span><b>{duration(category.seconds)} · {category.percent.toFixed(1)}%</b></div><span><i style={{ width: `${category.percent}%`, background: category.color }}/></span></div>)}</div>
       </Card>
       <Card title={result.trendUnit === 'day' ? '每日趋势' : '每月趋势'} action={<span className="card-caption">北京时间</span>}>
-        <div className="chart" aria-label="专注时长趋势图"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trend}><defs><linearGradient id="statsChartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5b5ce2" stopOpacity={.38}/><stop offset="1" stopColor="#5b5ce2" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="4 6" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={20}/><YAxis hide/><Tooltip formatter={(value) => duration(Number(value) * 60)} labelFormatter={(label) => `${label}`}/><Area type="monotone" dataKey="minutes" name="专注" stroke="#5b5ce2" strokeWidth={3} fill="url(#statsChartFill)"/></AreaChart></ResponsiveContainer></div>
+        <div className="chart" aria-label="专注时长趋势图"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trend} margin={{ left: -8, right: 8 }}><defs><linearGradient id="statsChartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5b5ce2" stopOpacity={.38}/><stop offset="1" stopColor="#5b5ce2" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="4 6" vertical={false}/><XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={20}/><YAxis width={34} axisLine={false} tickLine={false} tickFormatter={value => `${value}h`}/><Tooltip formatter={(value) => duration(Number(value) * 3600)} labelFormatter={(label) => `${label}`}/><Area type="monotone" dataKey="hours" name="专注" stroke="#5b5ce2" strokeWidth={3} fill="url(#statsChartFill)" dot={{ r: 3, fill: '#5b5ce2', strokeWidth: 0 }}/></AreaChart></ResponsiveContainer></div>
       </Card>
       <Card title="专注时段" action={<span className="card-caption">0—24 点</span>}>
-        <div className="hour-grid" aria-label="24 小时专注分布">{result.hourlySeconds.map((seconds, hour) => <div key={hour} title={`${String(hour).padStart(2, '0')}:00 · ${duration(seconds)}`}><span style={{ opacity: seconds ? .22 + seconds / maxHourly * .78 : .07 }}/><small>{hour % 3 === 0 ? String(hour).padStart(2, '0') : ''}</small></div>)}</div>
-        <p className="muted stats-time-note"><Timer/> 色块越深，代表这个小时投入的专注时间越多。</p>
+        <div className="hour-ruler-scroll"><div className="hour-ruler" aria-label="24 小时专注分布">{result.hourlySeconds.map((seconds, hour) => <div key={hour} title={`${String(hour).padStart(2, '0')}:00 · ${duration(seconds)}`} style={{ '--hour-height': `${seconds ? Math.max(8, seconds / maxHourly * 100) : 3}%` } as CSSProperties}><span><i/></span><small>{hour % 3 === 0 ? String(hour).padStart(2, '0') : ''}</small></div>)}</div></div>
+        <p className="muted stats-time-note"><Timer/> 24 根刻度依次代表一天中的每个小时，柱高就是实际专注投入。</p>
       </Card>
     </div>}
     <SleepStats sleep={result.sleep} onRecord={() => navigate('/sleep')}/>

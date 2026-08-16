@@ -42,6 +42,7 @@ export interface WebDavHistoryVersion {
 
 export const WEBDAV_CONFIG_KEY = 'kedu-focus-webdav-config-v1'
 export const WEBDAV_META_KEY = 'kedu-focus-webdav-meta-v1'
+export const WEBDAV_META_EVENT = 'kedu-focus-webdav-meta-saved'
 export const DEFAULT_WEBDAV_FILENAME = 'kedu-focus-backup.json'
 export const KEDU_SYNC_SERVER_HEADER = 'x-kedu-sync-server'
 export const KEDU_SYNC_EMPTY_HEADER = 'x-kedu-sync-empty'
@@ -88,6 +89,7 @@ export function loadWebDavMeta(target: string): WebDavSyncMeta | undefined {
 
 export function saveWebDavMeta(meta: WebDavSyncMeta) {
   storage()?.setItem(WEBDAV_META_KEY, JSON.stringify(meta))
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(WEBDAV_META_EVENT, { detail: meta }))
 }
 
 export function webDavTarget(config: WebDavConfig): string {

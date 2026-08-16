@@ -41,6 +41,10 @@ describe('statistics page', () => {
     expect(screen.getAllByText('25 分钟').length).toBeGreaterThan(0)
     expect(screen.getByText('睡眠概览')).toBeInTheDocument()
     expect(screen.getByText('2 晚记录')).toBeInTheDocument()
+    expect(screen.getByText('典型睡眠窗')).toBeInTheDocument()
+    expect(screen.getByText('最近几晚')).toBeInTheDocument()
+    expect(screen.getByText('7—9 小时')).toBeInTheDocument()
+    expect(screen.getByLabelText(/典型睡眠时段/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '周' }))
     expect(screen.getByText('8月10日 — 8月16日')).toBeInTheDocument()
