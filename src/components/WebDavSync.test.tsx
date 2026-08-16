@@ -38,7 +38,7 @@ describe('WebDAV history recovery', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(envelope), { status: 200, headers: { etag: version.etag } })))
 
     render(<AppProvider repository={new MemoryRepository(demoState)}><WebDavSync /></AppProvider>)
-    await screen.findByText('4 个任务')
+    await screen.findByText('4 条任务记录')
     fireEvent.click(screen.getByRole('button', { name: '查看历史' }))
 
     expect(await screen.findByText(/4 任务 · 5 专注 · 1 复盘 · 1 睡眠/)).toBeInTheDocument()

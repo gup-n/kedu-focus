@@ -95,6 +95,21 @@ describe('task and category workflows', () => {
     expect(screen.getByText('每周同一天')).toBeInTheDocument()
   })
 
+  it('moves old recurring completions into a collapsed lightweight archive', async () => {
+    const state = structuredClone(seedState)
+    state.tasks[0] = { ...state.tasks[0], recurrence: { kind: 'daily' }, completedAt: '2026-01-01T08:00:00.000Z' }
+    renderRoute('/tasks', state)
+    await screen.findByText('已保存在本机')
+
+    fireEvent.click(screen.getByRole('button', { name: /重复任务/ }))
+    fireEvent.click(screen.getByRole('button', { name: '已完成' }))
+    expect(screen.queryByText('完成产品原型的交互梳理')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /历史归档/ }))
+
+    expect(screen.getByText('完成产品原型的交互梳理')).toBeInTheDocument()
+    expect(screen.getByText(/已压缩为轻量记录/)).toBeInTheDocument()
+  })
+
   it('rejects duplicate category names and can rename and archive a category', async () => {
     renderRoute('/settings')
     await screen.findByText('已保存在本机')
@@ -268,7 +283,7 @@ describe('data health panel', () => {
     expect(screen.getByRole('heading', { name: '数据健康' })).toBeInTheDocument()
     expect(screen.getByText('长期墓碑策略已启用')).toBeInTheDocument()
     expect(screen.getByText(/1 条进入观察区/)).toBeInTheDocument()
-    expect(screen.getByText(/1 任务 · 1 专注/)).toBeInTheDocument()
+    expect(screen.getByText(/0 轻量归档 · 2 删除标记/)).toBeInTheDocument()
     expect(screen.getByText(/安全水位完成前/)).toBeInTheDocument()
   })
 })

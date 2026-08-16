@@ -12,6 +12,7 @@ export const seedState: AppState = {
     { id: 'review', name: '复盘', color: '#a46ee5' },
   ],
   tasks: [],
+  completions: [],
   sessions: [],
   reviews: [],
   sleep: [],

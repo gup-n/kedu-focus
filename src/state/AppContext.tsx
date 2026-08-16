@@ -4,6 +4,7 @@ import { createRepository, type Repository } from '../data/repository'
 import { seedState } from '../data/seed'
 import { visibleAppState } from '../domain/selectors'
 import { createNextRecurringTask } from '../utils/recurrence'
+import { compactRecurringTaskHistory } from '../utils/taskArchive'
 
 export type StorageStatus = 'loading' | 'saved' | 'saving' | 'error'
 
@@ -62,9 +63,10 @@ function normalizeState(state: AppState, now = Date.now()): AppState {
     categories: state.categories.map(category => ({ ...category, archived: category.archived ?? false })),
     timer: normalizedTimer({ ...state, timer: timerTask?.deletedAt ? { ...state.timer, taskId: undefined } : state.timer }, now),
   }
-  return normalized.timer.status === 'running' && normalized.timer.phase !== 'focus' && normalized.timer.remainingSeconds === 0
+  const timerNormalized = normalized.timer.status === 'running' && normalized.timer.phase !== 'focus' && normalized.timer.remainingSeconds === 0
     ? finishTimer(normalized, now)
     : normalized
+  return compactRecurringTaskHistory(timerNormalized, now)
 }
 
 function finishTimer(state: AppState, now: number, allowPartial = false): AppState {
@@ -241,6 +243,7 @@ export function AppProvider({ children, repository: suppliedRepository }: { chil
     hydrated,
     repository,
     state.tasks,
+    state.completions,
     state.categories,
     state.sessions,
     state.reviews,

@@ -21,6 +21,7 @@ export const demoState: AppState = {
     { id: 't3', title: '晚间散步 30 分钟', note: '不带耳机', plannedDate: today, dueDate: today, priority: 'low', categoryId: 'life', estimatedPomodoros: 1, createdAt: iso(-2, 9) },
     { id: 't4', title: '整理上周项目笔记', note: '归档到知识库', plannedDate: addShanghaiDays(today, -1), dueDate: addShanghaiDays(today, -1), priority: 'medium', categoryId: 'review', estimatedPomodoros: 1, createdAt: iso(-1, 9), completedAt: iso(-1, 18, 15) },
   ],
+  completions: [],
   sessions: [
     { id: 's1', taskId: 't1', categoryId: 'work', startedAt: iso(0, 9), endedAt: iso(0, 9, 25), minutes: 25 },
     { id: 's2', taskId: 't2', categoryId: 'study', startedAt: iso(0, 10), endedAt: iso(0, 10, 25), minutes: 25 },

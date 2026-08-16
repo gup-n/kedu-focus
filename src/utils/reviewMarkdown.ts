@@ -5,6 +5,7 @@ import { exportFile } from './fileExport'
 
 export function buildReviewMarkdown(state: AppState, review: Review) {
   const completed = state.tasks.filter(task => !task.deletedAt && task.completedAt?.slice(0, 10) === review.date).length
+    + (state.completions ?? []).filter(completion => completion.completedAt.slice(0, 10) === review.date).length
   const focusSeconds = state.sessions
     .filter(session => session.startedAt.slice(0, 10) === review.date)
     .reduce((total, session) => total + (session.seconds ?? session.minutes * 60), 0)

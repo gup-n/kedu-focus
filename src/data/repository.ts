@@ -1,8 +1,8 @@
 import type { AppState } from '../domain/types'
 
 const DB_NAME = 'focus-planner'
-const DB_VERSION = 1
-const ENTITY_STORES = ['tasks', 'categories', 'sessions', 'reviews', 'sleep'] as const
+const DB_VERSION = 2
+const ENTITY_STORES = ['tasks', 'completions', 'categories', 'sessions', 'reviews', 'sleep'] as const
 const ALL_STORES = [...ENTITY_STORES, 'kv'] as const
 
 type EntityStore = (typeof ENTITY_STORES)[number]
@@ -64,8 +64,9 @@ export class IndexedDbRepository implements Repository {
       ) as Record<EntityStore, Promise<unknown[]>>
       const settings = requestResult<StoredValue<AppState['settings']> | undefined>(transaction.objectStore('kv').get('settings'))
       const timer = requestResult<StoredValue<AppState['timer']> | undefined>(transaction.objectStore('kv').get('timer'))
-      const [tasks, categories, sessions, reviews, sleep, storedSettings, storedTimer] = await Promise.all([
+      const [tasks, completions, categories, sessions, reviews, sleep, storedSettings, storedTimer] = await Promise.all([
         entityRequests.tasks,
+        entityRequests.completions,
         entityRequests.categories,
         entityRequests.sessions,
         entityRequests.reviews,
@@ -77,6 +78,7 @@ export class IndexedDbRepository implements Repository {
       if (!storedSettings || !storedTimer) return null
       return {
         tasks: tasks as AppState['tasks'],
+        completions: completions as AppState['completions'],
         categories: categories as AppState['categories'],
         sessions: sessions as AppState['sessions'],
         reviews: reviews as AppState['reviews'],
@@ -95,6 +97,7 @@ export class IndexedDbRepository implements Repository {
       const transaction = database.transaction([...ALL_STORES], 'readwrite')
       for (const name of ENTITY_STORES) transaction.objectStore(name).clear()
       for (const task of state.tasks) transaction.objectStore('tasks').put(task)
+      for (const completion of state.completions ?? []) transaction.objectStore('completions').put(completion)
       for (const category of state.categories) transaction.objectStore('categories').put(category)
       for (const session of state.sessions) transaction.objectStore('sessions').put(session)
       for (const review of state.reviews) transaction.objectStore('reviews').put(review)

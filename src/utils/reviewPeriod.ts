@@ -15,6 +15,7 @@ export function periodReviewSummary(state: AppState, kind: ReviewPeriodKind, anc
   const inside = (date: string) => date >= range.start && date <= range.end
   const reviews = state.reviews.filter(review => inside(review.date)).sort((a, b) => a.date.localeCompare(b.date))
   const completedTasks = state.tasks.filter(task => !task.deletedAt && task.completedAt && inside(task.completedAt.slice(0, 10))).length
+    + (state.completions ?? []).filter(completion => inside(completion.completedAt.slice(0, 10))).length
   const focusSeconds = state.sessions.filter(session => !session.deletedAt && inside(session.startedAt.slice(0, 10))).reduce((sum, session) => sum + (session.seconds ?? session.minutes * 60), 0)
   const sleep = state.sleep.filter(record => inside(record.date))
   const averageSleepMinutes = sleep.length ? Math.round(sleep.reduce((sum, record) => sum + (Date.parse(record.wokeAt) - Date.parse(record.sleptAt)) / 60000, 0) / sleep.length) : 0

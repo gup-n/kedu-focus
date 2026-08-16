@@ -1,5 +1,6 @@
-import type { AppState, Category, FocusSession, Review, SleepRecord, Task } from '../domain/types'
+import type { AppState, Category, FocusSession, Review, SleepRecord, Task, TaskCompletion } from '../domain/types'
 import type { ConflictChoice, EntityCollection, ImportEntity } from './backup'
+import { suppressCompactedTasks } from './taskArchive'
 
 export type SyncDifferenceKind = 'local-only' | 'remote-only' | 'changed'
 
@@ -20,8 +21,8 @@ export interface SyncPlan {
   settingsDiffer: boolean
 }
 
-const collections: EntityCollection[] = ['tasks', 'categories', 'sessions', 'reviews', 'sleep']
-export const syncCollectionLabels: Record<EntityCollection, string> = { tasks: '任务', categories: '分类', sessions: '专注', reviews: '复盘', sleep: '睡眠' }
+const collections: EntityCollection[] = ['tasks', 'completions', 'categories', 'sessions', 'reviews', 'sleep']
+export const syncCollectionLabels: Record<EntityCollection, string> = { tasks: '任务', completions: '完成归档', categories: '分类', sessions: '专注', reviews: '复盘', sleep: '睡眠' }
 
 function normalizedJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(item => item === undefined ? 'null' : normalizedJson(item)).join(',')}]`
@@ -55,6 +56,7 @@ function entityKey(collection: EntityCollection, entity: ImportEntity) {
 
 export function syncEntityLabel(collection: EntityCollection, entity: ImportEntity) {
   if (collection === 'tasks') return (entity as Task).title || '未命名任务'
+  if (collection === 'completions') return `${(entity as TaskCompletion).plannedDate} · ${(entity as TaskCompletion).title}`
   if (collection === 'categories') return (entity as Category).name || '未命名分类'
   if (collection === 'reviews') return `${(entity as Review).date} 复盘`
   if (collection === 'sleep') return `${(entity as SleepRecord).date} 睡眠`
@@ -87,11 +89,12 @@ function compareCollection(collection: EntityCollection, local: ImportEntity[], 
 }
 
 export function buildSyncPlan(local: AppState, remote: AppState): SyncPlan {
-  const differences = collections.flatMap(collection => compareCollection(
-    collection,
-    local[collection] as ImportEntity[],
-    remote[collection] as ImportEntity[],
-  ))
+  const allCompletions = [...(local.completions ?? []), ...(remote.completions ?? [])]
+  const differences = collections.flatMap(collection => {
+    const localItems = collection === 'tasks' ? suppressCompactedTasks(local.tasks, allCompletions) : (local[collection] ?? []) as ImportEntity[]
+    const remoteItems = collection === 'tasks' ? suppressCompactedTasks(remote.tasks, allCompletions) : (remote[collection] ?? []) as ImportEntity[]
+    return compareCollection(collection, localItems, remoteItems)
+  })
   return {
     local,
     remote,
@@ -121,9 +124,11 @@ function mergedCollection(collection: EntityCollection, local: ImportEntity[], r
 export function applySyncChoices(plan: SyncPlan, choices: Record<string, ConflictChoice>): AppState {
   const unresolved = plan.differences.filter(item => item.kind === 'changed' && !choices[item.key])
   if (unresolved.length) throw new Error(`还有 ${unresolved.length} 条内容不同的记录尚未选择。`)
+  const completions = mergedCollection('completions', plan.local.completions ?? [], plan.remote.completions ?? [], choices) as TaskCompletion[]
   return {
     ...structuredClone(plan.local),
-    tasks: mergedCollection('tasks', plan.local.tasks, plan.remote.tasks, choices) as Task[],
+    tasks: suppressCompactedTasks(mergedCollection('tasks', suppressCompactedTasks(plan.local.tasks, completions), suppressCompactedTasks(plan.remote.tasks, completions), choices) as Task[], completions),
+    completions,
     categories: mergedCollection('categories', plan.local.categories, plan.remote.categories, choices) as Category[],
     sessions: mergedCollection('sessions', plan.local.sessions, plan.remote.sessions, choices) as FocusSession[],
     reviews: mergedCollection('reviews', plan.local.reviews, plan.remote.reviews, choices) as Review[],

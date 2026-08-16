@@ -23,6 +23,7 @@ export interface DataHealthSnapshot {
   oldestDeletedAt?: string
   estimatedBytes: number
   activeRecords: number
+  archivedCompletions: number
   totalRecords: number
   tombstoneRatio: number
   level: 'healthy' | 'watch'
@@ -43,7 +44,8 @@ export function calculateDataHealth(state: AppState, now = Date.now()): DataHeal
   const matureTombstones = deletions.filter(value => Date.parse(value) <= cutoff).length
   const activeTasks = state.tasks.length - taskTombstones.length
   const activeSessions = state.sessions.length - sessionTombstones.length
-  const activeRecords = activeTasks + activeSessions + state.reviews.length + state.sleep.length + state.categories.length
+  const archivedCompletions = state.completions?.length ?? 0
+  const activeRecords = activeTasks + activeSessions + archivedCompletions + state.reviews.length + state.sleep.length + state.categories.length
   const tombstones = deletions.length
   const totalRecords = activeRecords + tombstones
   const tombstoneRatio = totalRecords ? tombstones / totalRecords : 0
@@ -62,6 +64,7 @@ export function calculateDataHealth(state: AppState, now = Date.now()): DataHeal
     oldestDeletedAt: deletions[0],
     estimatedBytes,
     activeRecords,
+    archivedCompletions,
     totalRecords,
     tombstoneRatio,
     level: tombstones >= 100 || tombstoneRatio >= .25 ? 'watch' : 'healthy',

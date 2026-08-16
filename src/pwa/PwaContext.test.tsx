@@ -73,6 +73,7 @@ describe('PWA controls', () => {
   })
 
   it('requests persistent storage from settings', async () => {
+    localStorage.setItem('kedu-focus-seen-release', currentRelease.version)
     render(<PwaProvider><PwaSettings /></PwaProvider>)
     const button = await screen.findByRole('button', { name: /请求保护/ })
     fireEvent.click(button)

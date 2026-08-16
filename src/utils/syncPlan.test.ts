@@ -93,4 +93,21 @@ describe('sync plan', () => {
     expect(plan.differences).toHaveLength(1)
     expect(plan.differences[0]).toMatchObject({ collection: 'tasks', entityKey: local.tasks[0].id, kind: 'changed' })
   })
+
+  it('syncs a compacted completion without reviving the stale full task', () => {
+    const local = structuredClone(demoState)
+    const stale = { ...local.tasks[0], recurrence: { kind: 'daily' as const }, completedAt: '2026-01-01T08:00:00.000Z' }
+    local.tasks = local.tasks.filter(task => task.id !== stale.id)
+    local.completions = [{ id: stale.id, recurrenceSourceId: stale.id, title: stale.title, categoryId: stale.categoryId, plannedDate: stale.plannedDate, completedAt: stale.completedAt, compactedAt: '2026-08-16T08:00:00.000Z' }]
+    const remote = structuredClone(demoState)
+    remote.tasks[0] = stale
+    remote.completions = []
+
+    const plan = buildSyncPlan(local, remote)
+    const merged = applySyncChoices(plan, {})
+
+    expect(plan.differences).toEqual([expect.objectContaining({ collection: 'completions', kind: 'local-only' })])
+    expect(merged.tasks.some(task => task.id === stale.id)).toBe(false)
+    expect(merged.completions?.some(completion => completion.id === stale.id)).toBe(true)
+  })
 })
