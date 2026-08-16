@@ -1,5 +1,6 @@
 import type { AppState, Category, FocusSession, Review, SleepRecord, Task } from '../domain/types'
 import { exportFile } from './fileExport'
+import { recordBackupActivity } from './dataHealth'
 
 export { downloadBlob } from './fileExport'
 
@@ -247,9 +248,12 @@ function dateStamp(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}`
 }
 
-export function downloadBackup(state: AppState, prefix = '刻度备份', now = new Date()) {
+export async function downloadBackup(state: AppState, prefix = '刻度备份', now = new Date()) {
   const envelope = createBackupEnvelope(state, now.toISOString())
-  return exportFile([JSON.stringify(envelope, null, 2)], `${prefix}_${dateStamp(now)}.json`, 'application/json;charset=utf-8')
+  const filename = `${prefix}_${dateStamp(now)}.json`
+  const result = await exportFile([JSON.stringify(envelope, null, 2)], filename, 'application/json;charset=utf-8')
+  if (result !== 'cancelled') recordBackupActivity({ savedAt: now.toISOString(), filename })
+  return result
 }
 
 export function collectionLabel(collection: EntityCollection) { return conflictLabels[collection] }

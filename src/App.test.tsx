@@ -247,13 +247,29 @@ describe('sleep workflows', () => {
     renderRoute('/sleep', state)
     await screen.findByText('已保存在本机')
 
-    fireEvent.change(screen.getByLabelText('起床日期'), { target: { value: '2026-08-08' } })
+    fireEvent.click(screen.getByRole('button', { name: /8月8日.*23:45.*08:15/ }))
 
     expect(screen.getByLabelText('入睡日期')).toHaveValue('2026-08-07')
     expect(screen.getByLabelText('入睡时间')).toHaveValue('23:45')
     expect(screen.getByLabelText('起床时间')).toHaveValue('08:15')
     expect(screen.getByRole('button', { name: '3' })).toHaveClass('active')
     expect(screen.getByRole('button', { name: '更新记录' })).toBeInTheDocument()
+  })
+})
+
+describe('data health panel', () => {
+  it('shows active records, tombstone age and the protected cleanup policy', async () => {
+    const state = structuredClone(seedState)
+    state.tasks[0].deletedAt = '2026-01-01T00:00:00.000Z'
+    state.sessions[0].deletedAt = new Date().toISOString()
+    renderRoute('/settings', state)
+    await screen.findByText('已保存在本机')
+
+    expect(screen.getByRole('heading', { name: '数据健康' })).toBeInTheDocument()
+    expect(screen.getByText('长期墓碑策略已启用')).toBeInTheDocument()
+    expect(screen.getByText(/1 条进入观察区/)).toBeInTheDocument()
+    expect(screen.getByText(/1 任务 · 1 专注/)).toBeInTheDocument()
+    expect(screen.getByText(/安全水位完成前/)).toBeInTheDocument()
   })
 })
 

@@ -43,6 +43,15 @@ export interface SleepStatisticsPoint {
   count: number
 }
 
+export interface SleepNightSummary {
+  id: string
+  date: string
+  sleptAt: string
+  wokeAt: string
+  durationSeconds: number
+  score: number
+}
+
 export interface SleepStatistics {
   recordCount: number
   averageDurationSeconds: number
@@ -52,6 +61,11 @@ export interface SleepStatistics {
   trend: SleepStatisticsPoint[]
   trendUnit: 'day' | 'month'
   hourlyCoverageSeconds: number[]
+  shortestDurationSeconds: number
+  longestDurationSeconds: number
+  recommendedNightCount: number
+  timingDeviationMinutes: number
+  recentNights: SleepNightSummary[]
 }
 
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -196,6 +210,11 @@ function shanghaiMinuteOfDay(timestamp: number) {
   return shifted.getUTCHours() * 60 + shifted.getUTCMinutes()
 }
 
+function circularDistanceMinutes(left: number, right: number) {
+  const distance = Math.abs(left - right)
+  return Math.min(distance, 24 * 60 - distance)
+}
+
 function validSleepRecord(record: SleepRecord) {
   const start = parseSleepTimestamp(record.sleptAt)
   const end = parseSleepTimestamp(record.wokeAt)
@@ -213,6 +232,7 @@ function calculateSleepStatistics(records: SleepRecord[], range: DateRange, tren
   const hourlyCoverageSeconds = Array.from({ length: 24 }, () => 0)
   const bedtimes: number[] = []
   const wakeTimes: number[] = []
+  const durations: number[] = []
   let durationSeconds = 0
   let scoreTotal = 0
 
@@ -225,6 +245,7 @@ function calculateSleepStatistics(records: SleepRecord[], range: DateRange, tren
       trendValue.count += 1
     }
     durationSeconds += seconds
+    durations.push(seconds)
     scoreTotal += Number.isFinite(record.score) ? record.score : 0
     bedtimes.push(shanghaiMinuteOfDay(window.start))
     wakeTimes.push(shanghaiMinuteOfDay(window.end))
@@ -240,18 +261,32 @@ function calculateSleepStatistics(records: SleepRecord[], range: DateRange, tren
     }
   }
 
+  const averageBedtimeMinutes = circularAverageMinutes(bedtimes)
+  const averageWakeMinutes = circularAverageMinutes(wakeTimes)
+  const timingDeviationMinutes = selected.length && averageBedtimeMinutes !== null && averageWakeMinutes !== null
+    ? Math.round(selected.reduce((sum, item, index) => sum
+      + (circularDistanceMinutes(bedtimes[index], averageBedtimeMinutes) + circularDistanceMinutes(wakeTimes[index], averageWakeMinutes)) / 2, 0) / selected.length)
+    : 0
   return {
     recordCount: selected.length,
     averageDurationSeconds: selected.length ? durationSeconds / selected.length : 0,
     averageScore: selected.length ? scoreTotal / selected.length : 0,
-    averageBedtimeMinutes: circularAverageMinutes(bedtimes),
-    averageWakeMinutes: circularAverageMinutes(wakeTimes),
+    averageBedtimeMinutes,
+    averageWakeMinutes,
     trend: trendKeys.map(key => {
       const value = trendMap.get(key) ?? { seconds: 0, count: 0 }
       return { key, seconds: value.count ? value.seconds / value.count : 0, count: value.count }
     }),
     trendUnit,
     hourlyCoverageSeconds,
+    shortestDurationSeconds: durations.length ? Math.min(...durations) : 0,
+    longestDurationSeconds: durations.length ? Math.max(...durations) : 0,
+    recommendedNightCount: durations.filter(seconds => seconds >= 7 * 3600 && seconds <= 9 * 3600).length,
+    timingDeviationMinutes,
+    recentNights: [...selected]
+      .sort((left, right) => right.record.date.localeCompare(left.record.date))
+      .slice(0, 7)
+      .map(({ record, window }) => ({ id: record.id, date: record.date, sleptAt: record.sleptAt, wokeAt: record.wokeAt, durationSeconds: (window.end - window.start) / 1000, score: record.score })),
   }
 }
 
