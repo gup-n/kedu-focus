@@ -11,12 +11,13 @@ export function createCsv(rows: unknown[][]): string {
 }
 
 const categoryName = (state: AppState, id: string) => state.categories.find(category => category.id === id)?.name ?? '未分类'
-const taskName = (state: AppState, id?: string) => !id ? '未关联任务' : state.tasks.find(task => task.id === id)?.title ?? '已删除任务'
+const taskName = (state: AppState, id?: string) => !id ? '未关联任务' : state.tasks.find(task => task.id === id)?.title ?? state.completions?.find(completion => completion.id === id)?.title ?? '已删除任务'
 
 export function tasksCsv(state: AppState) {
   return createCsv([
-    ['任务ID', '标题', '说明', '计划日期', '截止日期', '优先级', '分类', '预计番茄数', '创建时间', '完成时间', '删除时间', '更新时间'],
-    ...state.tasks.filter(task => !task.deletedAt).map(task => [task.id, task.title, task.note, task.plannedDate, task.dueDate, task.priority, categoryName(state, task.categoryId), task.estimatedPomodoros, task.createdAt, task.completedAt, task.deletedAt, task.updatedAt]),
+    ['任务ID', '标题', '说明', '计划日期', '截止日期', '优先级', '分类', '预计番茄数', '创建时间', '完成时间', '删除时间', '更新时间', '记录类型'],
+    ...state.tasks.filter(task => !task.deletedAt).map(task => [task.id, task.title, task.note, task.plannedDate, task.dueDate, task.priority, categoryName(state, task.categoryId), task.estimatedPomodoros, task.createdAt, task.completedAt, task.deletedAt, task.updatedAt, '完整任务']),
+    ...(state.completions ?? []).map(completion => [completion.id, completion.title, '', completion.plannedDate, completion.plannedDate, '', categoryName(state, completion.categoryId), '', '', completion.completedAt, '', completion.compactedAt, '重复任务轻量归档']),
   ])
 }
 

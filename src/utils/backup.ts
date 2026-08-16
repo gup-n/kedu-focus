@@ -1,6 +1,7 @@
-import type { AppState, Category, FocusSession, Review, SleepRecord, Task } from '../domain/types'
+import type { AppState, Category, FocusSession, Review, SleepRecord, Task, TaskCompletion } from '../domain/types'
 import { exportFile } from './fileExport'
 import { recordBackupActivity } from './dataHealth'
+import { suppressCompactedTasks } from './taskArchive'
 
 export { downloadBlob } from './fileExport'
 
@@ -23,10 +24,11 @@ export interface BackupPreview {
   sleep: number
   deletedTasks: number
   deletedSessions: number
+  archivedCompletions: number
 }
 
-export type EntityCollection = 'tasks' | 'categories' | 'sessions' | 'reviews' | 'sleep'
-export type ImportEntity = Task | Category | FocusSession | Review | SleepRecord
+export type EntityCollection = 'tasks' | 'completions' | 'categories' | 'sessions' | 'reviews' | 'sleep'
+export type ImportEntity = Task | TaskCompletion | Category | FocusSession | Review | SleepRecord
 
 export interface MergeConflict {
   key: string
@@ -96,6 +98,12 @@ function validateCategory(value: unknown, index: number) {
   if (!isString(category.name) || !isString(category.color)) fail(`分类 #${index + 1} 的名称或颜色格式不正确。`)
 }
 
+function validateCompletion(value: unknown, index: number) {
+  const completion = requireRecord(value, `完成归档 #${index + 1}`)
+  requireId(completion, `完成归档 #${index + 1}`)
+  if (!isString(completion.recurrenceSourceId) || !isString(completion.title) || !isString(completion.categoryId) || !isDateKey(completion.plannedDate) || !isIsoDate(completion.completedAt) || !isIsoDate(completion.compactedAt)) fail(`完成归档 #${index + 1} 的核心字段不正确。`)
+}
+
 function validateSession(value: unknown, index: number) {
   const session = requireRecord(value, `专注记录 #${index + 1}`)
   requireId(session, `专注记录 #${index + 1}`)
@@ -128,16 +136,19 @@ function assertUniqueIds(items: unknown[], label: string) {
 function validateState(value: unknown): AppState {
   const data = requireRecord(value, 'data')
   const tasks = requireArray(data.tasks, 'tasks')
+  const completions = data.completions === undefined ? [] : requireArray(data.completions, 'completions')
   const categories = requireArray(data.categories, 'categories')
   const sessions = requireArray(data.sessions, 'sessions')
   const reviews = requireArray(data.reviews, 'reviews')
   const sleep = requireArray(data.sleep, 'sleep')
   tasks.forEach(validateTask)
+  completions.forEach(validateCompletion)
   categories.forEach(validateCategory)
   sessions.forEach(validateSession)
   reviews.forEach(validateReview)
   sleep.forEach(validateSleep)
   assertUniqueIds(tasks, 'tasks')
+  assertUniqueIds(completions, 'completions')
   assertUniqueIds(categories, 'categories')
   assertUniqueIds(sessions, 'sessions')
   assertUniqueIds(reviews, 'reviews')
@@ -146,6 +157,7 @@ function validateState(value: unknown): AppState {
     const task = value as unknown as Task
     task.createdAt ??= task.updatedAt ?? `${task.plannedDate}T00:00:00+08:00`
   }
+  data.completions = completions
 
   const settings = requireRecord(data.settings, 'settings')
   if (!['light', 'dark', 'system'].includes(String(settings.theme)) || !['focusMinutes', 'shortBreakMinutes', 'longBreakMinutes', 'longBreakEvery'].every(key => isNumber(settings[key]))) fail('备份中的计时设置格式不正确。')
@@ -179,6 +191,7 @@ export function getBackupPreview(envelope: BackupEnvelope): BackupPreview {
     sleep: data.sleep.length,
     deletedTasks: data.tasks.filter(task => task.deletedAt).length,
     deletedSessions: data.sessions.filter(session => session.deletedAt).length,
+    archivedCompletions: data.completions?.length ?? 0,
   }
 }
 
@@ -188,10 +201,11 @@ function normalizedJson(value: unknown): string {
   return JSON.stringify(value) ?? 'null'
 }
 
-const conflictLabels: Record<EntityCollection, string> = { tasks: '任务', categories: '分类', sessions: '专注记录', reviews: '复盘', sleep: '睡眠记录' }
+const conflictLabels: Record<EntityCollection, string> = { tasks: '任务', completions: '完成归档', categories: '分类', sessions: '专注记录', reviews: '复盘', sleep: '睡眠记录' }
 
 function entityLabel(collection: EntityCollection, entity: ImportEntity) {
   if (collection === 'tasks') return (entity as Task).title || '未命名任务'
+  if (collection === 'completions') return (entity as TaskCompletion).title || '重复任务完成归档'
   if (collection === 'categories') return (entity as Category).name || '未命名分类'
   if (collection === 'reviews') return `${(entity as Review).date} 复盘`
   if (collection === 'sleep') return `${(entity as SleepRecord).date} 睡眠`
@@ -219,14 +233,16 @@ function mergeCollection<T extends ImportEntity>(collection: EntityCollection, l
 }
 
 export function buildMergePlan(local: AppState, imported: AppState): MergePlan {
-  const tasks = mergeCollection('tasks', local.tasks, imported.tasks)
+  const completions = mergeCollection('completions', local.completions ?? [], imported.completions ?? [])
+  const completionRecords = completions.output as TaskCompletion[]
+  const tasks = mergeCollection('tasks', suppressCompactedTasks(local.tasks, completionRecords), suppressCompactedTasks(imported.tasks, completionRecords))
   const categories = mergeCollection('categories', local.categories, imported.categories)
   const sessions = mergeCollection('sessions', local.sessions, imported.sessions)
   const reviews = mergeCollection('reviews', local.reviews, imported.reviews)
   const sleep = mergeCollection('sleep', local.sleep, imported.sleep)
   return {
-    state: { ...local, tasks: tasks.output, categories: categories.output, sessions: sessions.output, reviews: reviews.output, sleep: sleep.output },
-    conflicts: [...tasks.conflicts, ...categories.conflicts, ...sessions.conflicts, ...reviews.conflicts, ...sleep.conflicts],
+    state: { ...local, tasks: tasks.output, completions: completionRecords, categories: categories.output, sessions: sessions.output, reviews: reviews.output, sleep: sleep.output },
+    conflicts: [...tasks.conflicts, ...completions.conflicts, ...categories.conflicts, ...sessions.conflicts, ...reviews.conflicts, ...sleep.conflicts],
   }
 }
 
@@ -240,6 +256,7 @@ export function applyConflictChoices(plan: MergePlan, choices: Record<string, Co
     const index = collection.findIndex(item => item.id === conflict.id)
     if (index >= 0) collection[index] = structuredClone(conflict.imported)
   }
+  state.tasks = suppressCompactedTasks(state.tasks, state.completions ?? [])
   return state
 }
 

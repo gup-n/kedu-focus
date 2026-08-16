@@ -30,6 +30,11 @@ export function visibleAppState(state: AppState): AppState {
       ...task,
       completedAt: task.completedAt ? shanghaiIsoString(new Date(task.completedAt)) : undefined,
     })),
+    completions: (state.completions ?? []).map(completion => ({
+      ...completion,
+      completedAt: shanghaiIsoString(new Date(completion.completedAt)),
+      compactedAt: shanghaiIsoString(new Date(completion.compactedAt)),
+    })),
     sessions: activeSessions(state).map(session => ({
       ...session,
       startedAt: shanghaiIsoString(new Date(session.startedAt)),

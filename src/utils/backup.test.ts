@@ -32,11 +32,13 @@ describe('backup envelope', () => {
 
   it('backfills a stable creation time when importing a legacy task', () => {
     const legacy = createBackupEnvelope(seedState)
+    delete legacy.data.completions
     delete legacy.data.tasks[0].createdAt
     legacy.data.tasks[0].updatedAt = '2026-08-08T09:00:00.000Z'
 
     const parsed = parseBackupJson(JSON.stringify(legacy))
     expect(parsed.data.tasks[0].createdAt).toBe('2026-08-08T09:00:00.000Z')
+    expect(parsed.data.completions).toEqual([])
   })
 
   it.each(['tasks', 'categories', 'sessions', 'reviews', 'sleep'] as const)('rejects duplicate IDs in %s', collection => {
@@ -97,6 +99,20 @@ describe('backup merge', () => {
     expect(conflict).toBeDefined()
     const kept = applyConflictChoices(plan, Object.fromEntries(plan.conflicts.map(item => [item.key, 'local'])))
     expect(kept.tasks[0].deletedAt).toBeTruthy()
+  })
+
+  it('keeps a compacted completion marker from reviving the stale full recurring task', () => {
+    const local = structuredClone(seedState)
+    const staleTask = { ...local.tasks[0], recurrence: { kind: 'daily' as const }, completedAt: '2026-01-01T08:00:00.000Z' }
+    local.tasks = local.tasks.filter(task => task.id !== staleTask.id)
+    local.completions = [{ id: staleTask.id, recurrenceSourceId: staleTask.id, title: staleTask.title, categoryId: staleTask.categoryId, plannedDate: staleTask.plannedDate, completedAt: staleTask.completedAt, compactedAt: '2026-08-16T08:00:00.000Z' }]
+    const imported = structuredClone(seedState)
+    imported.tasks[0] = staleTask
+
+    const merged = applyConflictChoices(buildMergePlan(local, imported), {})
+
+    expect(merged.tasks.some(task => task.id === staleTask.id)).toBe(false)
+    expect(merged.completions?.some(completion => completion.id === staleTask.id)).toBe(true)
   })
 
   it('validates, previews, and conflicts focus-session tombstones', () => {

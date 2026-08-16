@@ -162,7 +162,10 @@ def history_versions(config: SyncConfig) -> list[dict[str, object]]:
             "exportedAt": payload["exportedAt"],
             "sizeBytes": len(content),
             "etag": etag_for(content),
-            "counts": {key: len(data[key]) for key in ("tasks", "categories", "sessions", "reviews", "sleep")},
+            "counts": {
+                **{key: len(data[key]) for key in ("categories", "sessions", "reviews", "sleep")},
+                "tasks": len(data["tasks"]) + len(data.get("completions", [])),
+            },
         })
     return versions
 

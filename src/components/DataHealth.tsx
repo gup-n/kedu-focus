@@ -66,7 +66,7 @@ export function DataHealth() {
     </div>
 
     <div className="health-facts">
-      <div><Archive/><span>删除标记<strong>{health.deletedTasks} 任务 · {health.deletedSessions} 专注</strong></span></div>
+      <div><Archive/><span>历史压缩<strong>{health.archivedCompletions} 轻量归档 · {health.deletedTasks + health.deletedSessions} 删除标记</strong></span></div>
       <div><HardDrive/><span>浏览器空间<strong>{storageUsage === undefined ? '正在估算…' : `${formatDataSize(storageUsage)} / ${storageQuota ? formatDataSize(storageQuota) : '未知额度'}`}</strong></span></div>
       <div><ShieldCheck/><span>最近 JSON 备份<strong>{backup ? localTime(backup.savedAt) : '尚未在此设备导出'}</strong></span></div>
       <div><Cloud/><span>最近 WebDAV 同步<strong>{syncMeta ? localTime(syncMeta.lastSyncedAt) : '尚未在此设备同步'}</strong></span></div>

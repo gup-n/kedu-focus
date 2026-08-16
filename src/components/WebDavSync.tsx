@@ -262,7 +262,7 @@ export function WebDavSync() {
   const busy = activity !== 'idle'
   return <div className="webdav-sync">
     <div className="sync-track" aria-label="WebDAV 同步状态">
-      <div><span>本机</span><b>{activeCount(rawState.tasks)} 个任务</b></div>
+      <div><span>本机</span><b>{activeCount(rawState.tasks) + (rawState.completions?.length ?? 0)} 条任务记录</b></div>
       <div className={busy ? 'moving' : meta ? 'linked' : ''}><i/><Link2/><i/></div>
       <div><span>WebDAV</span><b>{meta ? `上次同步 ${new Date(meta.lastSyncedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : '尚未同步'}</b></div>
     </div>
@@ -299,7 +299,7 @@ export function WebDavSync() {
     </div>
 
     {firstUpload && <section className="sync-conflict first-upload" aria-label="确认首次上传">
-      <header><CloudUpload/><div><b>创建第一份云端备份</b><p>将上传 {activeCount(rawState.tasks)} 个任务、{activeCount(rawState.sessions)} 条专注、{rawState.reviews.length} 条复盘和 {rawState.sleep.length} 条睡眠。</p></div></header>
+      <header><CloudUpload/><div><b>创建第一份云端备份</b><p>将上传 {activeCount(rawState.tasks)} 个当前任务、{rawState.completions?.length ?? 0} 条完成归档、{activeCount(rawState.sessions)} 条专注、{rawState.reviews.length} 条复盘和 {rawState.sleep.length} 条睡眠。</p></div></header>
       <div className="webdav-actions"><button className="btn quiet" onClick={resetPreview}>取消</button><button className="btn primary" disabled={busy} onClick={() => void createFirstBackup()}>确认首次上传</button></div>
     </section>}
 

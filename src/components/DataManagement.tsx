@@ -175,7 +175,7 @@ export function DataManagement() {
       <div className="dialog-head"><h2>{plan ? '解决合并冲突' : '导入预览'}</h2><button onClick={closeImport} aria-label="关闭"><X/></button></div>
       {!plan ? <>
         <div className="backup-file"><FileJson/><div><b>有效的刻度备份</b><p>导出于 {new Date(preview.exportedAt).toLocaleString('zh-CN')}</p></div></div>
-        <div className="preview-grid"><span><b>{preview.tasks}</b>任务{preview.deletedTasks>0&&<small> +{preview.deletedTasks} 已删除</small>}</span><span><b>{preview.categories}</b>分类</span><span><b>{preview.sessions}</b>专注{preview.deletedSessions>0&&<small> +{preview.deletedSessions} 已删除</small>}</span><span><b>{preview.reviews}</b>复盘</span><span><b>{preview.sleep}</b>睡眠</span></div>
+        <div className="preview-grid"><span><b>{preview.tasks}</b>任务{preview.archivedCompletions>0&&<small> +{preview.archivedCompletions} 轻量归档</small>}{preview.deletedTasks>0&&<small> +{preview.deletedTasks} 已删除</small>}</span><span><b>{preview.categories}</b>分类</span><span><b>{preview.sessions}</b>专注{preview.deletedSessions>0&&<small> +{preview.deletedSessions} 已删除</small>}</span><span><b>{preview.reviews}</b>复盘</span><span><b>{preview.sleep}</b>睡眠</span></div>
         <p className="muted">“合并”会按记录 ID 对齐，并保留本机设置和当前计时器；内容不同的同 ID 记录需要你逐条选择。“覆盖”会恢复备份中的完整状态。</p>
         <div className="dialog-actions"><ActionButton disabled={exporting} onClick={overwrite}>覆盖本地</ActionButton><ActionButton primary disabled={exporting} onClick={prepareMerge}>合并数据</ActionButton></div>
       </> : <>
