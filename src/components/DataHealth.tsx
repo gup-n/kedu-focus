@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Archive, CheckCircle2, Cloud, Database, HardDrive, ShieldCheck } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 import { useApp } from '../state/AppContext'
 import { BACKUP_ACTIVITY_EVENT, calculateDataHealth, formatDataSize, readBackupActivity, type BackupActivity } from '../utils/dataHealth'
 import { loadWebDavConfig, loadWebDavMeta, webDavTarget, WEBDAV_META_EVENT, type WebDavSyncMeta } from '../utils/webdav'
@@ -17,6 +18,7 @@ function currentSyncMeta() {
 }
 
 export function DataHealth() {
+  const location = useLocation()
   const { rawState } = useApp()
   const health = useMemo(() => calculateDataHealth(rawState), [rawState])
   const [backup, setBackup] = useState<BackupActivity | undefined>(readBackupActivity)
@@ -52,6 +54,12 @@ export function DataHealth() {
   const activeWidth = health.activeRecords / rulerTotal * 100
   const recentWidth = health.recentTombstones / rulerTotal * 100
   const matureWidth = health.matureTombstones / rulerTotal * 100
+
+  if (location.pathname === '/settings') return <div className="health-compact">
+    <span className={health.level}><Database/></span>
+    <div><b>{health.level === 'healthy' ? '数据状态良好' : '有墓碑记录需要留意'}</b><p>{health.activeRecords} 条有效记录 · {health.tombstones} 条删除标记 · 约 {formatDataSize(health.estimatedBytes)}</p><small>长期墓碑策略已启用 · {health.matureTombstones} 条进入观察区 · 安全水位完成前保留同步标记。</small></div>
+    <Link className="btn quiet" to="/health">查看数据健康</Link>
+  </div>
 
   return <div className="data-health">
     <div className="health-summary">

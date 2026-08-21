@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useReducer, useRef, useState, type Dispatch, type ReactNode } from 'react'
-import type { AppSettings, AppState, Category, Review, SleepRecord, Task, TimerState } from '../domain/types'
+import type { AppSettings, AppState, Category, FocusSession, Review, SleepRecord, Task, TimerState } from '../domain/types'
 import { createRepository, type Repository } from '../data/repository'
 import { seedState } from '../data/seed'
 import { visibleAppState } from '../domain/selectors'
@@ -14,6 +14,7 @@ export type Action =
   | { type: 'UPDATE_TASK'; task: Task }
   | { type: 'DELETE_TASK'; id: string }
   | { type: 'DELETE_SESSION'; id: string; now?: string }
+  | { type: 'UPDATE_SESSION'; session: FocusSession }
   | { type: 'TOGGLE_TASK'; id: string }
   | { type: 'ADD_CATEGORY'; category: Category }
   | { type: 'UPDATE_CATEGORY'; category: Category }
@@ -28,7 +29,7 @@ export type Action =
   | { type: 'TIMER_TICK'; now?: string }
   | { type: 'TIMER_FINISH'; now?: string }
   | { type: 'TIMER_END_EARLY'; now?: string }
-  | { type: 'SET_TIMER_TASK'; id: string }
+  | { type: 'SET_TIMER_TASK'; id?: string }
   | { type: 'SET_TIMER_PHASE'; phase: TimerState['phase'] }
   | { type: 'RESET_APP' }
 
@@ -119,6 +120,10 @@ export function appReducer(state: AppState, action: Action): AppState {
       const now = action.now ?? new Date().toISOString()
       return { ...state, sessions: state.sessions.map(session => session.id === action.id && !session.deletedAt ? { ...session, deletedAt: now, updatedAt: now } : session) }
     }
+    case 'UPDATE_SESSION': {
+      const now = action.session.updatedAt ?? new Date().toISOString()
+      return { ...state, sessions: state.sessions.map(session => session.id === action.session.id ? { ...action.session, updatedAt: now } : session) }
+    }
     case 'TOGGLE_TASK': {
       const now = new Date().toISOString()
       const target = state.tasks.find(task => task.id === action.id && !task.deletedAt)
@@ -172,7 +177,7 @@ export function appReducer(state: AppState, action: Action): AppState {
     }
     case 'TIMER_FINISH': return finishTimer(state, Date.parse(action.now ?? new Date().toISOString()))
     case 'TIMER_END_EARLY': return finishTimer(state, Date.parse(action.now ?? new Date().toISOString()), true)
-    case 'SET_TIMER_TASK': return { ...state, timer: { ...state.timer, taskId: action.id } }
+    case 'SET_TIMER_TASK': return { ...state, timer: { ...state.timer, taskId: action.id || undefined } }
     case 'RESET_APP': return structuredClone(seedState)
     default: return state
   }

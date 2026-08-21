@@ -10,6 +10,13 @@ import { MemoryRepository } from '../data/repository'
 afterEach(cleanup)
 
 describe('appReducer', () => {
+  it('updates a focus session in place and refreshes its sync timestamp', () => {
+    const state = structuredClone(seedState)
+    const original = state.sessions[0]
+    const next = appReducer(state, { type: 'UPDATE_SESSION', session: { ...original, note: '更正后的记录', updatedAt: '2026-08-21T12:00:00.000Z' } })
+    expect(next.sessions).toHaveLength(state.sessions.length)
+    expect(next.sessions.find(session => session.id === original.id)).toMatchObject({ id: original.id, note: '更正后的记录', updatedAt: '2026-08-21T12:00:00.000Z' })
+  })
   it('toggles task completion without mutating the existing state', () => {
     const next = appReducer(seedState, { type: 'TOGGLE_TASK', id: 't1' })
 

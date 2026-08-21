@@ -273,7 +273,7 @@ describe('sleep workflows', () => {
 })
 
 describe('data health panel', () => {
-  it('shows active records, tombstone age and the protected cleanup policy', async () => {
+  it('shows a compact settings summary and opens the full health page', async () => {
     const state = structuredClone(seedState)
     state.tasks[0].deletedAt = '2026-01-01T00:00:00.000Z'
     state.sessions[0].deletedAt = new Date().toISOString()
@@ -281,9 +281,11 @@ describe('data health panel', () => {
     await screen.findByText('已保存在本机')
 
     expect(screen.getByRole('heading', { name: '数据健康' })).toBeInTheDocument()
-    expect(screen.getByText('长期墓碑策略已启用')).toBeInTheDocument()
+    expect(screen.getByText(/长期墓碑策略已启用/)).toBeInTheDocument()
     expect(screen.getByText(/1 条进入观察区/)).toBeInTheDocument()
-    expect(screen.getByText(/0 轻量归档 · 2 删除标记/)).toBeInTheDocument()
+    expect(screen.queryByText(/0 轻量归档 · 2 删除标记/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: '查看数据健康' }))
+    expect(await screen.findByText(/0 轻量归档 · 2 删除标记/)).toBeInTheDocument()
     expect(screen.getByText(/安全水位完成前/)).toBeInTheDocument()
   })
 })
