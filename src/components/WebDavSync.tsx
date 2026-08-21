@@ -62,6 +62,7 @@ export function WebDavSync() {
   const [showPassword, setShowPassword] = useState(false)
   const [historyVersions, setHistoryVersions] = useState<WebDavHistoryVersion[] | null>(null)
   const [selectedHistory, setSelectedHistory] = useState<WebDavHistoryVersion | null>(null)
+  const [showDifferences, setShowDifferences] = useState(() => window.matchMedia?.('(min-width: 601px)').matches ?? true)
   const activeTimer = rawState.timer.status === 'running' || rawState.timer.status === 'paused'
   const target = useMemo(() => {
     try { return webDavTarget(config) } catch { return '' }
@@ -77,6 +78,7 @@ export function WebDavSync() {
     setFirstUpload(false)
     setChoices({})
     setSelectedHistory(null)
+    setShowDifferences(window.matchMedia?.('(min-width: 601px)').matches ?? true)
   }
 
   function update<K extends keyof WebDavConfig>(key: K, value: WebDavConfig[K]) {
@@ -306,12 +308,13 @@ export function WebDavSync() {
     {plan && remote && counts && <section className="sync-conflict sync-ledger" aria-label="同步差异预览">
       <header><ArrowLeftRight/><div><b>{intent === 'history' ? '历史版本差异账本' : '同步差异账本'}</b><p>云端快照：{new Date(remote.envelope.exportedAt).toLocaleString('zh-CN')} · 当前操作：{intent === 'history' ? '只读历史恢复' : '双向检查'}</p></div></header>
       <div className="sync-difference-counts"><span><b>{counts['local-only']}</b>仅本机</span><span><b>{counts['remote-only']}</b>仅云端</span><span><b>{counts.changed}</b>内容冲突</span></div>
+      <button type="button" className="sync-difference-toggle" onClick={() => setShowDifferences(value => !value)} aria-expanded={showDifferences}>{showDifferences ? '收起差异' : '展开全部差异'}<span>{plan.differences.length} 条明细</span></button>
       {plan.settingsDiffer && <p className="webdav-warning">两端计时设置不同。安全合并保留本机设置；整份覆盖则采用被选择的一端。</p>}
-      <div className="sync-difference-list">{plan.differences.map(item => <article key={item.key} className={`difference-${item.kind}`}>
+      {showDifferences && <div className="sync-difference-list">{plan.differences.map(item => <article key={item.key} className={`difference-${item.kind}`}>
         <div className="sync-difference-heading"><small>{syncCollectionLabels[item.collection]}</small><b>{item.label}</b><em>{item.kind === 'local-only' ? '仅本机' : item.kind === 'remote-only' ? '仅云端' : '需要选择'}</em></div>
         <div className="sync-version-pair"><section><span>本机</span><p>{differenceSummary(item, 'local')}</p></section><section><span>云端</span><p>{differenceSummary(item, 'remote')}</p></section></div>
         {item.kind === 'changed' && <div className="sync-choice"><button className={choices[item.key] === 'local' ? 'selected' : ''} onClick={() => setChoices(current => ({ ...current, [item.key]: 'local' }))}>合并时保留本机</button><button className={choices[item.key] === 'imported' ? 'selected' : ''} onClick={() => setChoices(current => ({ ...current, [item.key]: 'imported' }))}>合并时使用云端</button></div>}
-      </article>)}</div>
+      </article>)}</div>}
       <p className="sync-merge-note"><Merge/> {intent === 'history' ? '历史恢复只修改本机，不会覆盖云端活动文件。' : '安全合并会自动保留“仅本机”和“仅云端”的记录；'}{changed.length ? `还需选择 ${changed.length - resolved} 条冲突。` : '没有内容冲突，可以直接合并。'}</p>
       {intent === 'history' ? <div className="webdav-actions sync-final-actions"><button className="btn quiet" disabled={busy} onClick={resetPreview}>取消</button><button className="btn quiet" disabled={busy} onClick={() => void exportHistorySnapshot()}><Download/> 下载 JSON</button><button className="btn quiet" disabled={busy} onClick={() => void replaceLocalWithHistory()}><ArchiveRestore/> 整份恢复本机</button><button className="btn primary" disabled={busy || resolved !== changed.length} onClick={() => void mergeHistoryIntoLocal()}><Merge/> 安全合并到本机</button></div> : <div className="webdav-actions sync-final-actions"><button className="btn quiet" disabled={busy} onClick={resetPreview}>取消</button><button className="btn quiet" disabled={busy} onClick={() => void overwriteLocal()}><CloudDownload/> 云端覆盖本机</button><button className="btn quiet" disabled={busy} onClick={() => void overwriteRemote()}><CloudUpload/> 本机覆盖云端</button><button className="btn primary" disabled={busy || resolved !== changed.length} onClick={() => void mergeBoth()}><Merge/> 安全合并两端</button></div>}
     </section>}
