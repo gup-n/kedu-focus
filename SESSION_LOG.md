@@ -197,7 +197,15 @@
 - 新增脚本：`scripts/sync-android-version.mjs`，将 `package.json` 版本同步为 Android `versionName`，并生成递增的 `versionCode`。
 - 新增命令：`android:sync`、`android:open`、`android:run`、`android:build:debug`、`android:build:release`。
 
-验证结果：网页 lint、140 项测试、生产构建和 `android:sync` 均通过。debug APK 尚未生成，因为当前环境需要下载 Gradle，随后仍需配置 Android SDK。
-验证结果：网页 lint、140 项测试、生产构建和 `android:sync` 均通过。debug APK 尚未生成，因为当前环境需要下载 Gradle，随后仍需配置 Android SDK。
+验证结果：网页 lint、140 项测试、生产构建和 `android:sync` 均通过。Android SDK 已安装后，debug APK 已成功生成并通过签名校验。
 
-2026-08-22 工具链安装结果：已安装 Android Command Line Tools、`platforms;android-36`、`build-tools;36.0.0` 和 `platform-tools` 到 `C:\Users\14428\AppData\Local\Android\Sdk`，并写入用户级 `ANDROID_HOME` / `ANDROID_SDK_ROOT`。Gradle Wrapper 已切换为 `gradle-8.14.3-bin.zip`，但当前网络下载速度不足，debug APK 仍待后续重试。
+2026-08-22 工具链安装结果：已安装 Android Command Line Tools、`platforms;android-36`、`build-tools;36.0.0` 和 `platform-tools` 到 `C:\Users\14428\AppData\Local\Android\Sdk`，并写入用户级 `ANDROID_HOME` / `ANDROID_SDK_ROOT`。Gradle 8.14.3 使用浏览器下载的官方 ZIP 通过项目临时缓存完成构建，之后已清理临时 ZIP 和项目 Gradle 缓存。
+
+### 首个 APK 构建结果
+
+- 构建命令：`npm run android:build:debug`（最终使用 C 盘 Gradle 缓存和本地 Gradle ZIP 完成 Android 编译）。
+- 结果：`BUILD SUCCESSFUL`，93 个 Gradle 任务完成。
+- APK：`android/app/build/outputs/apk/debug/app-debug.apk`。
+- APK 大小：`4,440,919` bytes（约 `4.24 MB`）。
+- 包信息：`com.gupn.kedu.focus`，`versionName 0.9.0`，`versionCode 900`，最低 Android SDK 24，目标 SDK 36。
+- 签名：debug APK 已通过 `apksigner verify`，使用 Android Debug 证书；该 APK 仅用于本机安装验收，正式发布前必须配置正式签名密钥。
