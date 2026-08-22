@@ -164,6 +164,19 @@ sync-server/                  # 个人 WSL 局域网 HTTPS 同步服务、证书
 3. 按 `sync-server/README.md` 验证 HTTPS、认证、ETag、历史版本和服务停止后的本地可用性。
 4. 让计划书、会话记录和发布文档持续与源码状态保持一致。
 
+## Android App 开发
+
+项目已接入 Capacitor Android 容器。Android 端复用现有 React 页面和本地数据，不依赖浏览器地址栏，也不会显示浏览器广告；原生容器默认使用沉浸式全屏。
+
+常用命令：
+
+    npm run android:sync          # 构建 Web 资源并同步到 Android 工程
+    npm run android:open          # 用 Android Studio 打开工程
+    npm run android:build:debug   # 构建可安装的 debug APK
+    npm run android:build:release # 构建 release APK（需要签名配置）
+
+Android 版本号由 package.json 同步到 android/app/build.gradle。首次构建前需要安装 Android SDK、Android Studio 和对应的 SDK Platform/Build Tools；当前项目已生成 android/ 工程，但本机尚未检测到 Android SDK，因此 APK 构建仍需在配置 Android 工具链后执行。
+
 ## 路线图
 
 - 完成真实设备和局域网环境验收，并记录可复现的部署结果。
