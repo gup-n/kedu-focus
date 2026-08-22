@@ -177,6 +177,8 @@ sync-server/                  # 个人 WSL 局域网 HTTPS 同步服务、证书
 
 Android 版本号由 package.json 同步到 android/app/build.gradle。首次构建前需要安装 Android SDK、Android Studio 和对应的 SDK Platform/Build Tools；当前项目已生成 android/ 工程，但本机尚未检测到 Android SDK，因此 APK 构建仍需在配置 Android 工具链后执行。
 
+如果构建提示 `zip END header not found`，说明 Gradle 下载缓存不完整。停止当前构建后删除对应的 `gradle-8.14.3-bin` 缓存目录，再重新执行构建即可。
+
 ## 路线图
 
 - 完成真实设备和局域网环境验收，并记录可复现的部署结果。
