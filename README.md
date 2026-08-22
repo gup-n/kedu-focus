@@ -144,7 +144,7 @@ sync-server/                  # 个人 WSL 局域网 HTTPS 同步服务、证书
 
 ## 当前进度（2026-08-21）
 
-当前版本为 `0.9.0`，核心日常使用流程已经打通，且当前源码验证结果如下：
+当前版本为 `0.9.1`，核心日常使用流程已经打通，且当前源码验证结果如下：
 
 - `npm run lint`：通过
 - `npm run test -- --run`：22 个测试文件、140 个测试通过
@@ -190,4 +190,5 @@ Android 版本号由 package.json 同步到 android/app/build.gradle。首次构
 - `专注计划助手-计划书.md`：产品计划书与分期验收标准。
 - `Github发布及更新.md`：GitHub Pages 发布与更新流程。
 - `sync-server/README.md`：个人局域网同步服务器部署与证书说明。
+- Android App 内置当前个人局域网 CA，并允许 `https://localhost` 访问同步服务；浏览器版仍需在手机系统中安装 `sync-server/certs/kedu-ca.crt`。
 墓碑增长与后续安全压缩方案见 [数据保留与墓碑压缩规划](docs/data-retention.md)。在多设备同步水位完成前，应用不会擅自物理清除删除记录。

@@ -69,6 +69,11 @@ class SyncServerTests(unittest.TestCase):
         self.assertEqual(headers["Access-Control-Allow-Origin"], "https://gup-n.github.io")
         self.assertEqual(headers["Access-Control-Allow-Private-Network"], "true")
 
+    def test_preflight_allows_capacitor_android_origin(self):
+        status, headers, _ = self.request("OPTIONS", headers={"Origin": "https://localhost"})
+        self.assertEqual(status, 204)
+        self.assertEqual(headers["Access-Control-Allow-Origin"], "https://localhost")
+
     def test_requires_authentication(self):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
         connection.request("GET", "/kedu-focus-backup.json", headers={"Origin": "https://gup-n.github.io"})

@@ -47,7 +47,9 @@ chmod +x create-lan-certificate.sh start-server.sh
 ./create-lan-certificate.sh 192.168.1.20
 ```
 
-把生成的 `certs/kedu-ca.crt` 安装到 Windows 和 Android 的受信任 CA。只传输 `.crt`，不要复制 `kedu-ca.key` 或 `server.key`。
+把生成的 `certs/kedu-ca.crt` 安装到 Windows 和 Android 的受信任 CA。只传输 `.crt`，不要复制 `kedu-ca.key` 或 `server.key`。浏览器版必须完成这一步；只在浏览器中打开同步地址并临时放行证书，关闭浏览器或重启设备后可能再次失效。
+
+项目构建的 Android App 已内置当前个人局域网 CA，可直接连接由同一 CA 签发的服务器证书。如果删除 `certs/` 并重新生成了全新的 CA，需要把新的 `kedu-ca.crt` 同步替换到 `android/app/src/main/res/raw/kedu_ca.crt` 后重新构建 APK。
 
 ## 3. 配置服务
 
@@ -86,6 +88,8 @@ Windows 11 + WSL 2 推荐使用镜像网络，并只为 TCP 8443 开放 Hyper-V/
 - 用户名、密码：与 `.env` 一致
 
 先点击“测试连接”。服务器尚无备份时显示“连接成功，远端目录中还没有刻度备份”；随后点击“立即同步”即可首次上传。
+
+修改或更新同步服务后需要重启服务。Android App 请求来源为 `https://localhost`，服务端会自动允许该来源；旧服务进程不会自动加载新配置。
 
 ## 6. 自动启动（可选）
 

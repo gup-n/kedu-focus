@@ -209,3 +209,35 @@
 - APK 大小：`4,440,919` bytes（约 `4.24 MB`）。
 - 包信息：`com.gupn.kedu.focus`，`versionName 0.9.0`，`versionCode 900`，最低 Android SDK 24，目标 SDK 36。
 - 签名：debug APK 已通过 `apksigner verify`，使用 Android Debug 证书；该 APK 仅用于本机安装验收，正式发布前必须配置正式签名密钥。
+
+## Android 显示与局域网同步修复 | 0.9.1 | 2026-08-22
+
+### 本次问题
+
+- Android 状态栏和底部系统导航栏重新出现时，分别遮挡顶部内容和应用底部导航。
+- 浏览器/PWA 与 Android App 进行 WebDAV 同步时，必须先手动打开同步地址才能暂时放行自签名 HTTPS 证书；App 内没有该交互入口，因此测试连接始终失败。
+
+### 已完成改动
+
+- `MainActivity` 在启动、恢复前台和重新获得窗口焦点时重新进入沉浸式全屏，并兼容旧版系统栏 API。
+- Android 主主题和启动主题统一配置全屏、透明系统栏和刘海屏布局。
+- 移动端 CSS 增加顶部安全区、内容底部留白和底部导航安全区兜底；修复此前新增 CSS 的括号语法错误。
+- Android Manifest 增加 `networkSecurityConfig`，内置 `android/app/src/main/res/raw/kedu_ca.crt`，让 App 信任当前个人局域网 CA、系统 CA 和用户安装 CA。
+- 同步服务器默认允许 Capacitor App 的 `https://localhost` CORS 来源；示例配置、Windows 启动脚本和同步服务文档同步更新。
+- ESLint 忽略 Android 生成目录，避免构建产物中的第三方 `native-bridge.js` 误报。
+- 版本更新为 `0.9.1`，同步 Android `versionName=0.9.1`、`versionCode=901`，并更新 README、发布公告和应用内更新历史。
+
+### 验证
+
+- `npm run lint`：通过。
+- `npm test -- --run`：22 个测试文件、140 个测试通过。
+- `npm run build`：通过。
+- `sync-server` Python 单元测试：9 个测试通过。
+- `npm run android:sync`：通过，Android 工程已同步到 0.9.1。
+- 新 APK 构建曾被 Gradle 缓存中的依赖 JAR 权限拒绝阻塞；需要使用已下载的 `C:\Users\14428\Downloads\gradle-8.14.3-bin.zip` 建立新的可读 Gradle 用户目录后重试。旧版 APK 仍是 0.9.0/900，不能代表本次修复。
+
+### 使用注意
+
+- Android App：安装 0.9.1 APK 后，使用由当前 `kedu-ca.crt` 签发的服务器证书即可直接测试连接，不需要先用浏览器打开地址。
+- 浏览器/PWA：仍需在手机系统中安装 `sync-server/certs/kedu-ca.crt`；手动打开 HTTPS 地址只是临时绕过，不是稳定配置。
+- 如果重新生成了新的 CA，必须替换 `android/app/src/main/res/raw/kedu_ca.crt` 后重新构建 APK。
