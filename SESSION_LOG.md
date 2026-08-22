@@ -198,3 +198,6 @@
 - 新增命令：`android:sync`、`android:open`、`android:run`、`android:build:debug`、`android:build:release`。
 
 验证结果：网页 lint、140 项测试、生产构建和 `android:sync` 均通过。debug APK 尚未生成，因为当前环境需要下载 Gradle，随后仍需配置 Android SDK。
+验证结果：网页 lint、140 项测试、生产构建和 `android:sync` 均通过。debug APK 尚未生成，因为当前环境需要下载 Gradle，随后仍需配置 Android SDK。
+
+2026-08-22 工具链安装结果：已安装 Android Command Line Tools、`platforms;android-36`、`build-tools;36.0.0` 和 `platform-tools` 到 `C:\Users\14428\AppData\Local\Android\Sdk`，并写入用户级 `ANDROID_HOME` / `ANDROID_SDK_ROOT`。Gradle Wrapper 已切换为 `gradle-8.14.3-bin.zip`，但当前网络下载速度不足，debug APK 仍待后续重试。
