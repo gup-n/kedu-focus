@@ -172,6 +172,7 @@ def history_versions(config: SyncConfig) -> list[dict[str, object]]:
 
 def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
     write_lock = threading.Lock()
+    allowed_origins = config.allowed_origins | {"https://localhost"}
 
     class SyncHandler(BaseHTTPRequestHandler):
         server_version = "KeduLanSync/1.0"
@@ -181,11 +182,11 @@ def handler_factory(config: SyncConfig) -> type[BaseHTTPRequestHandler]:
 
         def _origin_allowed(self) -> bool:
             origin = self.headers.get("Origin")
-            return origin is None or origin.rstrip("/") in config.allowed_origins
+            return origin is None or origin.rstrip("/") in allowed_origins
 
         def _cors_headers(self) -> None:
             origin = self.headers.get("Origin")
-            if origin and origin.rstrip("/") in config.allowed_origins:
+            if origin and origin.rstrip("/") in allowed_origins:
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Vary", "Origin")
                 self.send_header("Access-Control-Expose-Headers", f"ETag, Last-Modified, {SERVER_ID_HEADER}, {SERVER_EMPTY_HEADER}, {SERVER_ARCHIVE_HEADER}")

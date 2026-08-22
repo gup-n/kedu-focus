@@ -8,6 +8,20 @@ export interface ReleaseNote {
 
 export const releases: ReleaseNote[] = [
   {
+    version: '0.9.1',
+    date: '2026-08-22',
+    title: '安卓显示与局域网同步修复',
+    summary: '修复 Android 系统栏遮挡，并让 App 可直接信任个人局域网同步证书。',
+    changes: [
+      '应用恢复焦点或从后台返回时自动重新进入沉浸式全屏',
+      '启动主题与主界面主题统一配置全屏和刘海屏适配',
+      '移动端页面为顶部、内容区和底部导航补充安全区兜底',
+      'Android App 内置信任本项目局域网 CA，不再需要先用浏览器打开同步地址',
+      '同步服务器允许 Capacitor 的 https://localhost 来源访问',
+      '浏览器/PWA 布局保持兼容，Android debug APK 可直接覆盖安装',
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-08-21',
     title: '专注记录与同步处理更顺手',

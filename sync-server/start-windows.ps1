@@ -71,7 +71,7 @@ if (-not (Test-Path -LiteralPath $envFile)) {
         "KEDU_SYNC_HISTORY_LIMIT=50"
         "KEDU_SYNC_USERNAME=kedu"
         "KEDU_SYNC_PASSWORD=$password"
-        "KEDU_SYNC_ALLOWED_ORIGINS=https://gup-n.github.io,http://localhost:5173,http://127.0.0.1:5173"
+        "KEDU_SYNC_ALLOWED_ORIGINS=https://gup-n.github.io,https://localhost,http://localhost:5173,http://127.0.0.1:5173"
         "KEDU_SYNC_TLS_CERT=./certs/server.crt"
         "KEDU_SYNC_TLS_KEY=./certs/server.key"
     ) | Set-Content -LiteralPath $envFile -Encoding UTF8
