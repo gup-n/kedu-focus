@@ -185,3 +185,16 @@
 - `timer.rounds` 暂时只能作为旧备份兼容字段，不应恢复为用户可见轮次来源。
 
 源码复核确认：任务、重复任务、日历、番茄钟、每日/周期复盘、睡眠、统计、备份合并、CSV、WebDAV 和局域网同步核心均已存在。此前日志中“周/月复盘、WebDAV、局域网同步尚未实现”的描述已经过时，应以本节和 README 的当前进度为准。
+
+## Android App 接入开始 | 2026-08-22
+
+本次开始将项目从纯浏览器/PWA 扩展为可安装的 Android App，采用 Capacitor 方案，不改变 React 业务代码、IndexedDB 数据结构、备份格式或 WebDAV 协议。
+
+- 新增依赖：`@capacitor/core`、`@capacitor/android`、`@capacitor/cli`（8.5.0）。
+- 新增配置：`capacitor.config.ts`，包名为 `com.gupn.kedu.focus`，Web 资源目录为 `dist`，Android 使用 HTTPS scheme，关闭原生日志输出。
+- 新增工程：`android/`，可由 Android Studio 打开并继续配置签名、图标和发布渠道。
+- Android `MainActivity` 默认隐藏状态栏和导航栏，支持手势临时呼出，达到独立 App 的沉浸式全屏效果。
+- 新增脚本：`scripts/sync-android-version.mjs`，将 `package.json` 版本同步为 Android `versionName`，并生成递增的 `versionCode`。
+- 新增命令：`android:sync`、`android:open`、`android:run`、`android:build:debug`、`android:build:release`。
+
+验证结果：网页 lint、140 项测试、生产构建和 `android:sync` 均通过。debug APK 尚未生成，因为当前环境需要下载 Gradle，随后仍需配置 Android SDK。
