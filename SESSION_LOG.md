@@ -241,3 +241,28 @@
 - Android App：安装 0.9.1 APK 后，使用由当前 `kedu-ca.crt` 签发的服务器证书即可直接测试连接，不需要先用浏览器打开地址。
 - 浏览器/PWA：仍需在手机系统中安装 `sync-server/certs/kedu-ca.crt`；手动打开 HTTPS 地址只是临时绕过，不是稳定配置。
 - 如果重新生成了新的 CA，必须替换 `android/app/src/main/res/raw/kedu_ca.crt` 后重新构建 APK。
+
+## Android 更新提示 | 0.9.1 | 2026-08-23
+
+### 已完成
+
+- Android 原生 App 启动和手动检查更新时读取 GitHub Pages 的 `releases.json`，不再依赖 APK 内的 Service Worker。
+- 版本高于当前内置版本时显示更新提示，并提供“下载新版 APK”入口。
+- 浏览器/PWA 继续沿用 Service Worker 更新流程和“新版本已准备好”文案。
+- 更新公告增加 `apkUrl` 字段，默认指向 GitHub Release 的 `latest/download/app-debug.apk`。
+- 新增 `.github/workflows/android-release.yml`：推送 `v*` 标签时构建 debug APK 并上传到 GitHub Release。
+
+### 验证
+
+- `npm run lint`：通过。
+- `npm test -- --run`：22 个测试文件、140 个测试通过。
+- `npm run build`：通过。
+- `npm run android:sync`：通过，同步到 Android `0.9.1 / 901`。
+- 本机 APK 重建仍受 Android Gradle Plugin 与 Google Services 依赖下载限制，现有旧 APK 为 `0.9.0 / 900`，不能验证本次更新提示。
+
+### 发布步骤
+
+1. 推送代码到 `main`。
+2. 创建并推送版本标签，例如 `v0.9.2`。
+3. GitHub Actions 自动构建并把 APK 上传到 Release。
+4. 更新 `public/releases.json` 与 `src/pwa/releases.ts` 的版本、说明和 `apkUrl`。

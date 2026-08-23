@@ -4,6 +4,7 @@ export interface ReleaseNote {
   title: string
   summary: string
   changes: string[]
+  apkUrl?: string
 }
 
 export const releases: ReleaseNote[] = [
@@ -12,6 +13,7 @@ export const releases: ReleaseNote[] = [
     date: '2026-08-22',
     title: '安卓显示与局域网同步修复',
     summary: '修复 Android 系统栏遮挡，并让 App 可直接信任个人局域网同步证书。',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/latest/download/app-debug.apk',
     changes: [
       '应用恢复焦点或从后台返回时自动重新进入沉浸式全屏',
       '启动主题与主界面主题统一配置全屏和刘海屏适配',
@@ -151,6 +153,15 @@ export const releases: ReleaseNote[] = [
 ]
 
 export const currentRelease = releases[0]
+export const remoteReleaseFeed = 'https://gup-n.github.io/kedu-focus/releases.json'
+
+function versionNumber(version: string) {
+  return version.split('.').map(part => Number.parseInt(part, 10) || 0).reduce((total, part) => total * 100 + part, 0)
+}
+
+export function isReleaseNewer(candidate: ReleaseNote, base = currentRelease) {
+  return versionNumber(candidate.version) > versionNumber(base.version)
+}
 
 function isReleaseNote(value: unknown): value is ReleaseNote {
   if (!value || typeof value !== 'object') return false
@@ -161,11 +172,13 @@ function isReleaseNote(value: unknown): value is ReleaseNote {
     && typeof note.summary === 'string'
     && Array.isArray(note.changes)
     && note.changes.every(change => typeof change === 'string')
+    && (note.apkUrl === undefined || typeof note.apkUrl === 'string')
 }
 
-export async function fetchLatestRelease(): Promise<ReleaseNote> {
+export async function fetchLatestRelease(remote = false): Promise<ReleaseNote> {
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}releases.json?time=${Date.now()}`, { cache: 'no-store' })
+    const endpoint = remote ? remoteReleaseFeed : `${import.meta.env.BASE_URL}releases.json`
+    const response = await fetch(`${endpoint}?time=${Date.now()}`, { cache: 'no-store' })
     if (!response.ok) return currentRelease
     const payload: unknown = await response.json()
     if (Array.isArray(payload)) {

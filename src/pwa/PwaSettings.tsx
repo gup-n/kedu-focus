@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Check, Download, HardDrive, RefreshCw, ShieldCheck, Smartphone } from 'lucide-react'
+import { Capacitor } from '@capacitor/core'
 import { usePwa } from './PwaState'
 import { currentRelease, fetchLatestRelease, releases, type ReleaseNote } from './releases'
 
 export function PwaSettings() {
-  const { installed, installAvailable, install, isIos, storageSupported, persisted, updateAvailable, checkingUpdate, lastCheckedAt, requestPersistence, checkForUpdate, applyUpdate } = usePwa()
+  const { installed, installAvailable, install, isIos, storageSupported, persisted, updateAvailable, checkingUpdate, lastCheckedAt, requestPersistence, checkForUpdate, applyUpdate, downloadUpdate } = usePwa()
   const [message, setMessage] = useState('')
   const [availableRelease, setAvailableRelease] = useState<ReleaseNote>(currentRelease)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const nativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 
   useEffect(() => {
     if (updateAvailable) void fetchLatestRelease().then(setAvailableRelease)
@@ -25,6 +27,10 @@ export function PwaSettings() {
 
   async function handleUpdate() {
     if (updateAvailable) {
+      if (nativeAndroid) {
+        downloadUpdate()
+        return
+      }
       setMessage('正在应用新版本，页面即将重新打开。')
       await applyUpdate()
       return
@@ -62,8 +68,8 @@ export function PwaSettings() {
     </div>
     <div className="pwa-setting-row">
       <span className="pwa-setting-icon"><RefreshCw /></span>
-      <div><b>{updateAvailable ? '发现可用的新版本' : '检查应用更新'}</b><p>{updateAvailable ? '新版本已下载完成，由你决定何时重新打开应用。' : lastCheckedAt ? `上次检查：${new Date(lastCheckedAt).toLocaleString('zh-CN')}` : '主动查询最新版本，减少浏览器缓存造成的更新延迟。'}</p></div>
-      <button className={`btn ${updateAvailable ? 'primary' : 'quiet'}`} disabled={checkingUpdate} onClick={() => void handleUpdate()}><RefreshCw className={checkingUpdate ? 'checking-update' : ''}/> {checkingUpdate ? '正在检查…' : updateAvailable ? '立即更新' : '检查更新'}</button>
+      <div><b>{updateAvailable ? '发现可用的新版本' : '检查应用更新'}</b><p>{updateAvailable ? (nativeAndroid ? '新版 APK 已发布，点击下载后按系统提示完成安装。' : '新版本已下载完成，由你决定何时重新打开应用。') : lastCheckedAt ? `上次检查：${new Date(lastCheckedAt).toLocaleString('zh-CN')}` : '主动查询最新版本，减少浏览器缓存造成的更新延迟。'}</p></div>
+      <button className={`btn ${updateAvailable ? 'primary' : 'quiet'}`} disabled={checkingUpdate} onClick={() => void handleUpdate()}><RefreshCw className={checkingUpdate ? 'checking-update' : ''}/> {checkingUpdate ? '正在检查…' : updateAvailable && nativeAndroid ? '下载新版 APK' : updateAvailable ? '立即更新' : '检查更新'}</button>
     </div>
     {updateAvailable && <div className="available-release" aria-label="本次更新内容">
       <span>v{availableRelease.version}</span>

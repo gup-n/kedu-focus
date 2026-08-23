@@ -4,6 +4,7 @@
     "date": "2026-08-22",
     "title": "安卓显示与局域网同步修复",
     "summary": "修复 Android 系统栏遮挡，并让 App 可直接信任个人局域网同步证书。",
+    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/latest/download/app-debug.apk",
     "changes": [
       "应用恢复焦点或从后台返回时自动重新进入沉浸式全屏",
       "启动主题与主界面主题统一配置全屏和刘海屏适配",

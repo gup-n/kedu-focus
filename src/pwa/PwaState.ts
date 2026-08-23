@@ -15,6 +15,7 @@ export interface PwaContextValue {
   requestPersistence: () => Promise<boolean>
   checkForUpdate: () => Promise<UpdateCheckResult>
   applyUpdate: () => Promise<void>
+  downloadUpdate: () => void
 }
 
 const unavailable = async () => false
@@ -34,6 +35,7 @@ export const PwaContext = createContext<PwaContextValue>({
   requestPersistence: unavailable,
   checkForUpdate: unsupportedUpdate,
   applyUpdate: ignoreUpdate,
+  downloadUpdate: () => undefined,
 })
 
 export function usePwa() {

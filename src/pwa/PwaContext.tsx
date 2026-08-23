@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, RefreshCw, X } from 'lucide-react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import { Capacitor } from '@capacitor/core'
 import { PwaContext, type PwaContextValue, type UpdateCheckResult } from './PwaState'
-import { currentRelease, fetchLatestRelease, type ReleaseNote } from './releases'
+import { currentRelease, fetchLatestRelease, isReleaseNewer, type ReleaseNote } from './releases'
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -28,6 +29,8 @@ export function PwaProvider({ children }: { children: ReactNode }) {
   const [detectedUpdate, setDetectedUpdate] = useState(false)
   const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null)
   const [availableRelease, setAvailableRelease] = useState<ReleaseNote>(currentRelease)
+  const nativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
+  const [nativeReleaseAvailable, setNativeReleaseAvailable] = useState(false)
   const [showInstalledRelease, setShowInstalledRelease] = useState(() => {
     const seen = localStorage.getItem(seenReleaseKey)
     return seen !== currentRelease.version
@@ -68,6 +71,16 @@ export function PwaProvider({ children }: { children: ReactNode }) {
     if (needRefresh) void fetchLatestRelease().then(setAvailableRelease)
   }, [needRefresh])
 
+  useEffect(() => {
+    if (!nativeAndroid || !navigator.onLine) return
+    void fetchLatestRelease(true).then(release => {
+      if (isReleaseNewer(release)) {
+        setAvailableRelease(release)
+        setNativeReleaseAvailable(true)
+      }
+    })
+  }, [nativeAndroid])
+
   async function install() {
     if (!installPrompt) return false
     await installPrompt.prompt()
@@ -87,6 +100,15 @@ export function PwaProvider({ children }: { children: ReactNode }) {
     if (!navigator.onLine) return 'offline'
     setCheckingUpdate(true)
     try {
+      if (nativeAndroid) {
+        const release = await fetchLatestRelease(true)
+        const available = isReleaseNewer(release)
+        setAvailableRelease(release)
+        setNativeReleaseAvailable(available)
+        setDetectedUpdate(available)
+        setLastCheckedAt(new Date().toISOString())
+        return available ? 'available' : 'current'
+      }
       const registration = registrationRef.current ?? await navigator.serviceWorker?.getRegistration?.()
       if (!registration) return 'unsupported'
       registrationRef.current = registration
@@ -107,12 +129,16 @@ export function PwaProvider({ children }: { children: ReactNode }) {
     await updateServiceWorker(true)
   }
 
+  function downloadUpdate() {
+    if (availableRelease.apkUrl) window.open(availableRelease.apkUrl, '_blank', 'noopener,noreferrer')
+  }
+
   function dismissInstalledRelease() {
     localStorage.setItem(seenReleaseKey, currentRelease.version)
     setShowInstalledRelease(false)
   }
 
-  const updateAvailable = needRefresh || detectedUpdate
+  const updateAvailable = needRefresh || detectedUpdate || nativeReleaseAvailable
 
   const value: PwaContextValue = {
     installed,
@@ -127,19 +153,21 @@ export function PwaProvider({ children }: { children: ReactNode }) {
     requestPersistence,
     checkForUpdate,
     applyUpdate,
+    downloadUpdate,
   }
 
   return <PwaContext.Provider value={value}>
     {children}
-    {(needRefresh || offlineReady || showInstalledRelease) && <aside className="pwa-notice" role="status" aria-live="polite">
-      <span className="pwa-notice-icon">{needRefresh ? <RefreshCw /> : <Check />}</span>
+    {(updateAvailable || offlineReady || showInstalledRelease) && <aside className="pwa-notice" role="status" aria-live="polite">
+      <span className="pwa-notice-icon">{updateAvailable ? <RefreshCw /> : <Check />}</span>
       <div>
-        <b>{needRefresh ? `新版本 v${availableRelease.version} 已准备好` : showInstalledRelease ? `版本公告 · v${currentRelease.version}` : '离线使用已准备好'}</b>
-        <p>{needRefresh ? availableRelease.summary : showInstalledRelease ? currentRelease.summary : '网络不稳定时，仍可打开刻度并查看本机数据。'}</p>
+        <b>{updateAvailable ? (nativeAndroid ? `新版本 v${availableRelease.version} 可用` : `新版本 v${availableRelease.version} 已准备好`) : showInstalledRelease ? `版本公告 · v${currentRelease.version}` : '离线使用已准备好'}</b>
+        <p>{updateAvailable ? availableRelease.summary : showInstalledRelease ? currentRelease.summary : '网络不稳定时，仍可打开刻度并查看本机数据。'}</p>
       </div>
       {needRefresh && <button className="pwa-update" onClick={() => void applyUpdate()}>立即更新</button>}
-      <button className="pwa-dismiss" aria-label={needRefresh ? '稍后更新' : showInstalledRelease ? '知道了' : '关闭提示'} onClick={() => needRefresh ? setNeedRefresh(false) : showInstalledRelease ? dismissInstalledRelease() : setOfflineReady(false)}>
-        {needRefresh ? '稍后' : showInstalledRelease ? '知道了' : <X />}
+      {nativeAndroid && nativeReleaseAvailable && availableRelease.apkUrl && <button className="pwa-update" onClick={downloadUpdate}>下载新版 APK</button>}
+      <button className="pwa-dismiss" aria-label={needRefresh ? '稍后更新' : updateAvailable ? '知道了' : showInstalledRelease ? '知道了' : '关闭提示'} onClick={() => needRefresh ? setNeedRefresh(false) : updateAvailable ? setNativeReleaseAvailable(false) : showInstalledRelease ? dismissInstalledRelease() : setOfflineReady(false)}>
+        {needRefresh ? '稍后' : updateAvailable ? '知道了' : showInstalledRelease ? '知道了' : <X />}
       </button>
     </aside>}
   </PwaContext.Provider>
