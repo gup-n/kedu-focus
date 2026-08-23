@@ -9,6 +9,18 @@ export interface ReleaseNote {
 
 export const releases: ReleaseNote[] = [
   {
+    version: '0.9.2',
+    date: '2026-08-23',
+    title: 'Android Release 签名测试版',
+    summary: '用于验证 Android App 更新检测、签名 APK 下载和覆盖安装流程。',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/latest/download/app-release.apk',
+    changes: [
+      '验证 GitHub Actions 使用正式 release 签名构建 APK',
+      '验证 Android App 可检测到新版本并下载 app-release.apk',
+      '不改变现有任务、计时、同步和备份数据结构',
+    ],
+  },
+  {
     version: '0.9.1',
     date: '2026-08-22',
     title: '安卓显示与局域网同步修复',
@@ -19,6 +31,7 @@ export const releases: ReleaseNote[] = [
       '启动主题与主界面主题统一配置全屏和刘海屏适配',
       '移动端页面为顶部、内容区和底部导航补充安全区兜底',
       'Android App 内置信任本项目局域网 CA，不再需要先用浏览器打开同步地址',
+      'APK JSON 导出先写入 Documents 目录，再交给系统分享或保存；当前更新地址仍使用 debug APK，待 release 签名验证后切换',
       '同步服务器允许 Capacitor 的 https://localhost 来源访问',
       '浏览器/PWA 布局保持兼容，Android debug APK 可直接覆盖安装',
     ],
