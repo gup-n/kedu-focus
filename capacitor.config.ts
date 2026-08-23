@@ -5,6 +5,11 @@ const config: CapacitorConfig = {
   appName: '刻度｜专注计划助手',
   webDir: 'dist',
   androidScheme: 'https',
+  plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    },
+  },
   loggingBehavior: 'none',
 };
 

@@ -1,5 +1,17 @@
 [ 
   {
+    "version": "0.9.3",
+    "date": "2026-08-23",
+    "title": "修复 Android 局域网同步",
+    "summary": "正式启用 Android 原生 HTTP 通道，修复 release APK 中 WebDAV 同步失败。",
+    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/latest/download/app-release.apk",
+    "changes": [
+      "Android WebDAV 请求改用 Capacitor 原生 HTTP 通道",
+      "继续使用 APK 内置局域网 CA 验证 HTTPS 服务",
+      "保留 0.9.2 的 release 签名更新流程"
+    ]
+  },
+  {
     "version": "0.9.2",
     "date": "2026-08-23",
     "title": "Android Release 签名测试版",
