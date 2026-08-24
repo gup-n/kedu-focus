@@ -14,6 +14,7 @@ import {
   type MergePlan,
 } from '../utils/backup'
 import { downloadCsv, type CsvKind } from '../utils/csv'
+import { isNativeAndroid } from '../utils/fileExport'
 import { WebDavSync } from './WebDavSync'
 
 function entitySummary(entity: Record<string, unknown>) {
@@ -75,7 +76,15 @@ export function DataManagement() {
     setExporting(true)
     try {
       const result = await downloadBackup(rawState)
-      setNotice(result === 'cancelled' ? '已取消导出，本地数据没有变化。' : result === 'shared' ? '备份文件已交给系统分享。' : 'JSON 备份已保存。')
+      setNotice(result === 'cancelled'
+        ? '已取消导出，本地数据没有变化。'
+        : result === 'shared'
+          ? '备份文件已交给系统分享。'
+          : isNativeAndroid()
+            ? 'JSON 备份已保存到 Android 文档目录，并已尝试打开系统分享。'
+            : result === 'downloaded'
+              ? '已触发浏览器下载，请在下载内容中查看 JSON 备份。'
+              : 'JSON 备份已保存。')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '无法导出 JSON 备份。')
     } finally {
@@ -88,7 +97,15 @@ export function DataManagement() {
     setNotice('')
     try {
       const result = await downloadCsv(rawState, kind)
-      setNotice(result === 'cancelled' ? '已取消导出。' : result === 'shared' ? 'CSV 文件已交给系统分享。' : 'CSV 文件已保存。')
+      setNotice(result === 'cancelled'
+        ? '已取消导出。'
+        : result === 'shared'
+          ? 'CSV 文件已交给系统分享。'
+          : isNativeAndroid()
+            ? 'CSV 文件已保存到 Android 文档目录，并已尝试打开系统分享。'
+            : result === 'downloaded'
+              ? '已触发浏览器下载，请在下载内容中查看 CSV 文件。'
+              : 'CSV 文件已保存。')
       if (result !== 'cancelled') setShowCsv(false)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '无法导出 CSV 文件。')
@@ -150,6 +167,7 @@ export function DataManagement() {
 
   return <>
     <p className="muted">JSON 备份包含全部任务（含删除墓碑）、分类、专注、复盘、睡眠、偏好和计时状态。导入前可先预览，应用时会自动备份当前数据。</p>
+    {isNativeAndroid() && <p className="data-location" role="note"><FileJson /> Android 备份位置：文件管理器 → 内部存储 → Documents → 以“刻度_”开头的 JSON 文件。</p>}
     <input ref={input} className="visually-hidden" aria-label="选择 JSON 备份文件" type="file" accept="application/json,.json" onChange={event => void loadFile(event.target.files?.[0])}/>
     <div className="data-actions">
       <ActionButton disabled={exporting} onClick={exportJson}><Download/> {exporting ? '正在处理…' : '导出 JSON 备份'}</ActionButton>

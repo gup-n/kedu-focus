@@ -1,12 +1,40 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { Capacitor } from '@capacitor/core'
+import { Directory, Filesystem } from '@capacitor/filesystem'
+import { Share } from '@capacitor/share'
 import { exportFile } from './fileExport'
+
+vi.mock('@capacitor/filesystem', () => ({
+  Directory: { Documents: 'DOCUMENTS' },
+  Filesystem: { writeFile: vi.fn() },
+}))
+
+vi.mock('@capacitor/share', () => ({ Share: { share: vi.fn() } }))
 
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  vi.mocked(Filesystem.writeFile).mockReset()
+  vi.mocked(Share.share).mockReset()
 })
 
 describe('exportFile', () => {
+  it('persists files through Capacitor and opens the Android share sheet', async () => {
+    vi.spyOn(Capacitor, 'isNativePlatform').mockReturnValue(true)
+    vi.spyOn(Capacitor, 'getPlatform').mockReturnValue('android')
+    vi.mocked(Filesystem.writeFile).mockResolvedValue({ uri: 'content://backup.json' })
+    vi.mocked(Share.share).mockResolvedValue({ activityType: undefined })
+
+    await expect(exportFile(['刻度'], '刻度备份.json', 'application/json;charset=utf-8')).resolves.toBe('saved')
+    expect(Filesystem.writeFile).toHaveBeenCalledWith(expect.objectContaining({
+      path: '刻度备份.json',
+      directory: Directory.Documents,
+      data: expect.any(String),
+      recursive: true,
+    }))
+    expect(Share.share).toHaveBeenCalledWith(expect.objectContaining({ files: ['content://backup.json'] }))
+  })
+
   it('uses the system file picker when available', async () => {
     const write = vi.fn().mockResolvedValue(undefined)
     const close = vi.fn().mockResolvedValue(undefined)

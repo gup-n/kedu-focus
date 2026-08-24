@@ -277,15 +277,13 @@ describe('data health panel', () => {
     const state = structuredClone(seedState)
     state.tasks[0].deletedAt = '2026-01-01T00:00:00.000Z'
     state.sessions[0].deletedAt = new Date().toISOString()
-    renderRoute('/settings', state)
+    renderRoute('/health', state)
     await screen.findByText('已保存在本机')
 
     expect(screen.getByRole('heading', { name: '数据健康' })).toBeInTheDocument()
     expect(screen.getByText(/长期墓碑策略已启用/)).toBeInTheDocument()
     expect(screen.getByText(/1 条进入观察区/)).toBeInTheDocument()
-    expect(screen.queryByText(/0 轻量归档 · 2 删除标记/)).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('link', { name: '查看数据健康' }))
-    expect(await screen.findByText(/0 轻量归档 · 2 删除标记/)).toBeInTheDocument()
+    expect(screen.getByText(/0 轻量归档 · 2 删除标记/)).toBeInTheDocument()
     expect(screen.getByText(/安全水位完成前/)).toBeInTheDocument()
   })
 })
@@ -308,7 +306,7 @@ describe('data import workflows', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const imported = structuredClone(seedState)
     imported.tasks[0].title = '从备份覆盖的任务'
-    renderRoute('/settings')
+    renderRoute('/data')
     await screen.findByText('已保存在本机')
 
     fireEvent.change(screen.getByLabelText('选择 JSON 备份文件'), { target: { files: [backupFile(imported)] } })
@@ -325,7 +323,7 @@ describe('data import workflows', () => {
     const imported = structuredClone(seedState)
     imported.categories = imported.categories.map(category => ({ ...category, archived: false }))
     imported.tasks.push({ ...imported.tasks[0], id: 'only-imported', title: '仅备份中的任务' })
-    renderRoute('/settings')
+    renderRoute('/data')
     await screen.findByText('已保存在本机')
 
     fireEvent.change(screen.getByLabelText('选择 JSON 备份文件'), { target: { files: [backupFile(imported)] } })
@@ -341,7 +339,7 @@ describe('data import workflows', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const imported = structuredClone(seedState)
     imported.tasks[0].title = '不应覆盖的任务'
-    renderRoute('/settings')
+    renderRoute('/data')
     await screen.findByText('已保存在本机')
 
     fireEvent.change(screen.getByLabelText('选择 JSON 备份文件'), { target: { files: [backupFile(imported)] } })
@@ -357,7 +355,7 @@ describe('data import workflows', () => {
     const imported = structuredClone(seedState)
     imported.categories = imported.categories.map(category => ({ ...category, archived: false }))
     imported.tasks[0] = { ...imported.tasks[0], title: '导入版交互梳理', note: '来自备份的说明', deletedAt: '2026-08-09T13:00:00.000Z' }
-    renderRoute('/settings')
+    renderRoute('/data')
     await screen.findByText('已保存在本机')
 
     fireEvent.change(screen.getByLabelText('选择 JSON 备份文件'), { target: { files: [backupFile(imported)] } })
@@ -386,7 +384,7 @@ describe('WebDAV sync workflows', () => {
     localStorage.clear()
     const fetcher = vi.fn().mockResolvedValue(new Response('', { status: 404, headers: { 'x-kedu-sync-server': '1', 'x-kedu-sync-empty': '1' } }))
     vi.stubGlobal('fetch', fetcher)
-    renderRoute('/settings')
+    renderRoute('/data')
     await screen.findByText('已保存在本机')
     openWebDav()
 
@@ -404,7 +402,7 @@ describe('WebDAV sync workflows', () => {
       .mockResolvedValueOnce(new Response('', { status: 404, headers: { 'x-kedu-sync-server': '1', 'x-kedu-sync-empty': '1' } }))
       .mockResolvedValueOnce(new Response(null, { status: 204, headers: { etag: '"created"' } }))
     vi.stubGlobal('fetch', fetcher)
-    renderRoute('/settings')
+    renderRoute('/data')
     await screen.findByText('已保存在本机')
     openWebDav()
 
@@ -423,7 +421,7 @@ describe('WebDAV sync workflows', () => {
     const cloud = structuredClone(seedState)
     cloud.tasks[0].title = '云端版本的任务'
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(createBackupEnvelope(cloud)), { status: 200, headers: { etag: '"cloud"' } })))
-    renderRoute('/settings')
+    renderRoute('/data')
     await screen.findByText('已保存在本机')
     openWebDav()
 
@@ -443,7 +441,7 @@ describe('WebDAV sync workflows', () => {
     local.categories = local.categories.map(category => ({ ...category, archived: false }))
     const cloud = JSON.parse(JSON.stringify(local))
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(createBackupEnvelope(cloud)), { status: 200, headers: { etag: '"cloud"' } })))
-    renderRoute('/settings', local)
+    renderRoute('/data', local)
     await screen.findByText('已保存在本机')
     openWebDav()
 
@@ -459,7 +457,7 @@ describe('WebDAV sync workflows', () => {
     running.timer.status = 'running'
     running.timer.startedAt = new Date().toISOString()
     running.timer.runStartedAt = running.timer.startedAt
-    renderRoute('/settings', running)
+    renderRoute('/data', running)
     await screen.findByText('已保存在本机')
     fireEvent.click(screen.getByRole('button', { name: 'WebDAV 同步' }))
 

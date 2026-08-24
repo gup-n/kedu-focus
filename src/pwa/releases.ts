@@ -9,11 +9,23 @@ export interface ReleaseNote {
 
 export const releases: ReleaseNote[] = [
   {
+    version: '0.9.4',
+    date: '2026-08-23',
+    title: 'Android 更新链路重构',
+    summary: 'Android App 现在使用版本专属 APK、应用内下载进度和系统安装确认页。',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.4/app-release.apk',
+    changes: [
+      'Android 更新不再跳转 GitHub 浏览器下载',
+      '下载过程中显示进度并校验包名、版本号和签名',
+      'Android 原生容器不再显示独立的 PWA 网页更新提示',
+    ],
+  },
+  {
     version: '0.9.3',
     date: '2026-08-23',
     title: '修复 Android 局域网同步',
     summary: '正式启用 Android 原生 HTTP 通道，修复 release APK 中 WebDAV 同步失败。',
-    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/latest/download/app-release.apk',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.3/app-release.apk',
     changes: [
       'Android WebDAV 请求改用 Capacitor 原生 HTTP 通道',
       '继续使用 APK 内置局域网 CA 验证 HTTPS 服务',
@@ -25,7 +37,7 @@ export const releases: ReleaseNote[] = [
     date: '2026-08-23',
     title: 'Android Release 签名测试版',
     summary: '用于验证 Android App 更新检测、签名 APK 下载和覆盖安装流程。',
-    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/latest/download/app-release.apk',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.2/app-release.apk',
     changes: [
       '验证 GitHub Actions 使用正式 release 签名构建 APK',
       '验证 Android App 可检测到新版本并下载 app-release.apk',
@@ -37,7 +49,7 @@ export const releases: ReleaseNote[] = [
     date: '2026-08-22',
     title: '安卓显示与局域网同步修复',
     summary: '修复 Android 系统栏遮挡，并让 App 可直接信任个人局域网同步证书。',
-    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/latest/download/app-debug.apk',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.1/app-debug.apk',
     changes: [
       '应用恢复焦点或从后台返回时自动重新进入沉浸式全屏',
       '启动主题与主界面主题统一配置全屏和刘海屏适配',
@@ -180,12 +192,28 @@ export const releases: ReleaseNote[] = [
 export const currentRelease = releases[0]
 export const remoteReleaseFeed = 'https://gup-n.github.io/kedu-focus/releases.json'
 
-function versionNumber(version: string) {
+export function versionNumber(version: string) {
   return version.split('.').map(part => Number.parseInt(part, 10) || 0).reduce((total, part) => total * 100 + part, 0)
 }
 
-export function isReleaseNewer(candidate: ReleaseNote, base = currentRelease) {
-  return versionNumber(candidate.version) > versionNumber(base.version)
+export function isReleaseNewer(candidate: ReleaseNote, base: ReleaseNote | string = currentRelease) {
+  return versionNumber(candidate.version) > versionNumber(typeof base === 'string' ? base : base.version)
+}
+
+export async function isApkReleaseReady(release: ReleaseNote, request: typeof fetch = fetch) {
+  if (!release.apkUrl || release.apkUrl.includes('/releases/latest/')) return false
+  try {
+    let response = await request(release.apkUrl, { method: 'HEAD', cache: 'no-store', redirect: 'follow' })
+    if (response.status === 405) {
+      response = await request(release.apkUrl, { headers: { Range: 'bytes=0-3' }, cache: 'no-store', redirect: 'follow' })
+    }
+    if (!response.ok) return false
+    const length = Number.parseInt(response.headers.get('content-length') ?? '', 10)
+    const type = response.headers.get('content-type')?.toLowerCase() ?? ''
+    return length !== 0 && (type.includes('application/vnd.android.package-archive') || type.includes('application/octet-stream'))
+  } catch {
+    return false
+  }
 }
 
 function isReleaseNote(value: unknown): value is ReleaseNote {
