@@ -118,7 +118,10 @@ export function PwaProvider({ children }: { children: ReactNode }) {
         setNativeUpdateState('idle')
         return 'current'
       }
-      if (!await isApkReleaseReady(release)) {
+      // GitHub's release CDN does not expose CORS headers for browser HEAD requests.
+      // Android downloads through the native plugin, so a WebView preflight would
+      // incorrectly report a ready APK as still publishing.
+      if (!nativeAndroid && !await isApkReleaseReady(release)) {
         setNativeUpdateState('publishing')
         return 'publishing'
       }

@@ -9,6 +9,18 @@ export interface ReleaseNote {
 
 export const releases: ReleaseNote[] = [
   {
+    version: '0.9.6',
+    date: '2026-08-24',
+    title: '修复 Android APK 更新检测',
+    summary: '修复 GitHub APK 已准备好但 Android WebView 因跨域 HEAD 检查误报为发布中的问题。',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.6/app-release.apk',
+    changes: [
+      'Android 原生更新不再依赖 GitHub 下载 CDN 的浏览器跨域 HEAD 检查',
+      'APK 下载继续由原生插件校验并显示进度',
+      '下载地址不可用时保留明确的下载失败状态',
+    ],
+  },
+  {
     version: '0.9.5',
     date: '2026-08-24',
     title: 'Android 与历史记录体验优化',
