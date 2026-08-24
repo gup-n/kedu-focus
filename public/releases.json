@@ -1,5 +1,17 @@
 [ 
   {
+    "version": "0.9.7",
+    "date": "2026-08-24",
+    "title": "优化桌面入口与复盘体验",
+    "summary": "补齐 PC 网页的更多入口，调整设置页管理项顺序，并完善复盘预览与历史复盘操作。",
+    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.7/app-release.apk",
+    "changes": [
+      "PC 桌面导航新增更多入口，可直接访问数据健康和数据管理",
+      "设置页将分类管理和计时偏好上移，应用与本机保护置于底部",
+      "历史复盘支持分页、日期选择、周期模板导出和全屏只读预览"
+    ]
+  },
+  {
     "version": "0.9.6",
     "date": "2026-08-24",
     "title": "修复 Android APK 更新检测",

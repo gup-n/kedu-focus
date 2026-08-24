@@ -3,7 +3,7 @@ import type { FocusSession } from '../domain/types'
 const RANGE_START_MINUTES = 7 * 60
 const RANGE_MINUTES = 15 * 60
 const MIN_BLOCK_WIDTH = 4
-const LANE_TOPS = [33, 5, 61] as const
+const LANE_GAP = 28
 
 const secondsOf = (session: FocusSession) => Math.max(0, Math.round(session.seconds ?? session.minutes * 60))
 const clamp = (value: number, minimum: number, maximum: number) => Math.min(maximum, Math.max(minimum, value))
@@ -32,9 +32,11 @@ export interface TimelinePlacement {
   range: string
 }
 
-export function buildTodayTimeline(sessions: FocusSession[]): TimelinePlacement[] {
+export type TodayTimeline = TimelinePlacement[] & { laneCount: number }
+
+export function buildTodayTimeline(sessions: FocusSession[]): TodayTimeline {
   const laneEnds = [-Infinity, -Infinity, -Infinity]
-  return [...sessions]
+  const placements = [...sessions]
     .sort((first, second) => Date.parse(first.startedAt) - Date.parse(second.startedAt) || first.id.localeCompare(second.id))
     .map(session => {
       const started = new Date(session.startedAt)
@@ -42,18 +44,22 @@ export function buildTodayTimeline(sessions: FocusSession[]): TimelinePlacement[
       const left = clamp((startMinutes - RANGE_START_MINUTES) / RANGE_MINUTES * 100, 0, 96)
       const width = Math.min(100 - left, Math.max(MIN_BLOCK_WIDTH, secondsOf(session) / (RANGE_MINUTES * 60) * 100))
       let lane = laneEnds.findIndex(end => left >= end + 0.6)
-      if (lane < 0) lane = laneEnds.indexOf(Math.min(...laneEnds))
+      if (lane < 0) {
+        lane = laneEnds.length
+        laneEnds.push(-Infinity)
+      }
       laneEnds[lane] = Math.max(laneEnds[lane], left + width)
       return {
         session,
         left,
         width,
         lane,
-        top: LANE_TOPS[lane],
+        top: 5 + lane * LANE_GAP,
         label: compactTimelineDuration(secondsOf(session)),
         range: `${clock(session.startedAt)}–${clock(session.endedAt)}`,
       }
     })
+  return Object.assign(placements, { laneCount: laneEnds.length })
 }
 
 export function timelineNowPosition(now: Date) {

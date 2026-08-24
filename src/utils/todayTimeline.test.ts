@@ -38,6 +38,18 @@ describe('today timeline', () => {
     expect(new Set(placements.map(item => item.top)).size).toBe(3)
   })
 
+  it('creates additional lanes instead of stacking a fourth overlapping record', () => {
+    const placements = buildTodayTimeline([
+      session('first', localTime(10), 1800),
+      session('second', localTime(10), 1800),
+      session('third', localTime(10), 1800),
+      session('fourth', localTime(10), 1800),
+    ])
+
+    expect(placements.laneCount).toBe(4)
+    expect(new Set(placements.map(item => item.lane)).size).toBe(4)
+  })
+
   it('formats seconds, minutes and hours without record sequence numbers', () => {
     expect(compactTimelineDuration(42)).toBe('42秒')
     expect(compactTimelineDuration(1201)).toBe('20分')
