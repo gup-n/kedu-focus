@@ -99,5 +99,5 @@ body,.app-shell{min-height:100dvh}
 .review-pagination span { color: var(--muted); font-size: 11px }
 @media (max-width: 700px) {
   .review-editor-backdrop { align-items: stretch }
-  .review-editor-sheet { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; padding-bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--review-keyboard-inset, 0px)) }
+  .review-editor-sheet { width: 100%; height: calc(100dvh - var(--keyboard-inset, 0px)); max-height: calc(100dvh - var(--keyboard-inset, 0px)); border-radius: 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); align-self: start }
 }
