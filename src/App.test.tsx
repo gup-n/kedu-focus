@@ -189,6 +189,19 @@ describe('timer and review workflows', () => {
     expect(field).toHaveValue('确认后的长文')
   })
 
+  it('uses the visual viewport height when the mobile keyboard is open', async () => {
+    vi.stubGlobal('visualViewport', {
+      height: 410,
+      offsetTop: 0,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })
+    renderRoute('/review')
+    await screen.findByText('已保存在本机')
+
+    expect(document.documentElement.style.getPropertyValue('--visual-viewport-height')).toBe('410px')
+  })
+
   it('automatically persists a review after typing', async () => {
     const repository = new MemoryRepository(seedState)
     render(
@@ -204,6 +217,17 @@ describe('timer and review workflows', () => {
       const saved = await repository.load()
       expect(saved.reviews.find(review => review.date === shanghaiDateKey())?.summary).toBe('这段内容无需再点保存')
     }, { timeout: 3000 })
+  })
+
+  it('keeps manual save while editing and removes it after auto-save completes', async () => {
+    renderRoute('/review')
+    await screen.findByText('已保存在本机')
+
+    expect(screen.getByRole('button', { name: '保存当前复盘' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/今日收获/), { target: { value: '自动保存后不再重复操作' } })
+
+    await waitFor(() => expect(screen.getByText('已自动保存')).toBeInTheDocument(), { timeout: 3000 })
+    expect(screen.queryByRole('button', { name: '保存当前复盘' })).not.toBeInTheDocument()
   })
 
   it('shows searchable history and week/month review summaries', async () => {

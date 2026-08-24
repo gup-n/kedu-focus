@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(ApkUpdaterPlugin.class);
         super.onCreate(savedInstanceState);
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         enterImmersiveMode();
     }
 
@@ -30,7 +31,9 @@ public class MainActivity extends BridgeActivity {
 
     @SuppressWarnings("deprecation")
     private void enterImmersiveMode() {
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        // Keep the bars hidden without the fullscreen window flag, so adjustResize can resize the WebView for the IME.
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);

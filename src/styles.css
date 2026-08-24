@@ -98,8 +98,8 @@ body,.app-shell{min-height:100dvh}
 .review-pagination button:disabled { opacity: .45; cursor: not-allowed }
 .review-pagination span { color: var(--muted); font-size: 11px }
 @media (max-width: 700px) {
-  .review-editor-backdrop { align-items: stretch }
-  .review-editor-sheet { width: 100%; height: calc(100dvh - var(--keyboard-inset, 0px)); max-height: calc(100dvh - var(--keyboard-inset, 0px)); border-radius: 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); align-self: start }
+  .review-editor-backdrop { align-items: stretch; height: var(--visual-viewport-height, 100dvh); max-height: var(--visual-viewport-height, 100dvh); overflow: hidden; transform: translateY(var(--visual-viewport-top, 0px)) }
+  .review-editor-sheet { width: 100%; height: var(--visual-viewport-height, calc(100dvh - var(--keyboard-inset, 0px))); max-height: var(--visual-viewport-height, calc(100dvh - var(--keyboard-inset, 0px))); border-radius: 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); align-self: start }
 }
 /* Keep dense focus history readable when more than three sessions overlap. */
 .timeline .rail{top:50%}

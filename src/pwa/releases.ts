@@ -9,6 +9,18 @@ export interface ReleaseNote {
 
 export const releases: ReleaseNote[] = [
   {
+    version: '0.9.9',
+    date: '2026-08-24',
+    title: '修复 Android 复盘键盘遮挡',
+    summary: '调整移动端复盘编辑器，使软键盘弹出后编辑区域跟随可视高度并保持独立滚动。',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.9/app-release.apk',
+    changes: [
+      'Android 原生窗口启用 adjustResize，避免输入法遮挡复盘编辑内容',
+      '复盘编辑器跟随 visualViewport 高度和偏移变化，长文本可在键盘上方继续滚动',
+      '补充移动端键盘视口回归测试，并保留自动保存交互优化',
+    ],
+  },
+  {
     version: '0.9.8',
     date: '2026-08-24',
     title: '更多与复盘预览体验优化',

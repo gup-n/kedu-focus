@@ -26,7 +26,7 @@ const nav = [['/today', '今日', Sparkles], ['/tasks', '任务', ListTodo], ['/
 const today = shanghaiDateKey();
 const cn = (...v: (string | false | undefined)[]) => v.filter(Boolean).join(' '); const sessionSeconds = (session: { seconds?: number; minutes: number }) => session.seconds ?? session.minutes * 60; const durationText = (seconds: number) => { const whole = Math.max(0, Math.round(seconds)); const h = Math.floor(whole / 3600), m = Math.floor(whole % 3600 / 60), s = whole % 60; return h ? `${h} 小时 ${m} 分钟` : s ? `${m} 分 ${s} 秒` : `${m} 分钟` };
 function useToday() { const [date, setDate] = useState(() => shanghaiDateKey()); useEffect(() => { const sync = () => setDate(shanghaiDateKey()); const id = window.setInterval(sync, 60_000); document.addEventListener('visibilitychange', sync); window.addEventListener('pageshow', sync); return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', sync); window.removeEventListener('pageshow', sync) } }, []); return date }
-function useViewportKeyboardInset() { useEffect(() => { const viewport = window.visualViewport; if (!viewport) return; const update = () => document.documentElement.style.setProperty('--keyboard-inset', `${Math.max(0, window.innerHeight - viewport.height)}px`); update(); viewport.addEventListener('resize', update); viewport.addEventListener('scroll', update); return () => { viewport.removeEventListener('resize', update); viewport.removeEventListener('scroll', update); document.documentElement.style.removeProperty('--keyboard-inset') } }, []) }
+function useViewportKeyboardInset() { useEffect(() => { const viewport = window.visualViewport; if (!viewport) return; const root = document.documentElement; const update = () => { root.style.setProperty('--keyboard-inset', `${Math.max(0, window.innerHeight - viewport.height)}px`); root.style.setProperty('--visual-viewport-height', `${viewport.height}px`); root.style.setProperty('--visual-viewport-top', `${viewport.offsetTop}px`) }; update(); viewport.addEventListener('resize', update); viewport.addEventListener('scroll', update); return () => { viewport.removeEventListener('resize', update); viewport.removeEventListener('scroll', update); root.style.removeProperty('--keyboard-inset'); root.style.removeProperty('--visual-viewport-height'); root.style.removeProperty('--visual-viewport-top') } }, []) }
 
 function MobileNav() { const location = useLocation(); const grouped = ['/more', '/calendar', '/review', '/sleep', '/settings', '/health', '/data']; return <nav className="mobile-nav" aria-label="主导航">{mobileNav.map(([to, label, Icon]) => <NavLink key={to} to={to} className={location.pathname === to || (to === '/more' && grouped.includes(location.pathname)) ? 'active' : ''}><Icon /><span>{label}</span></NavLink>)}</nav> }
 function AppShell() { useViewportKeyboardInset(); const { state, storageStatus } = useApp(); const notifiedThreshold = useRef<string | undefined>(undefined); const storageLabel = { loading: '正在准备本地存储', saving: '正在保存', saved: '已保存在本机', error: '本地保存失败' }[storageStatus]; useEffect(() => { const timer = state.timer; const duration = timer.durationSeconds; const elapsed = timer.liveElapsedSeconds ?? timer.elapsedSeconds; if (timer.phase !== 'focus' || timer.status !== 'running' || elapsed < duration || !timer.startedAt) return; if (notifiedThreshold.current === timer.startedAt) return; notifiedThreshold.current = timer.startedAt; if ('vibrate' in navigator) navigator.vibrate?.([220, 100, 220]); if (typeof Notification === 'undefined') return; const notify = () => new Notification(`专注已满 ${Math.round(duration / 60)} 分钟`, { body: '计时仍在继续，结束时会按实际时长记录。' }); if (Notification.permission === 'granted') notify(); else if (Notification.permission === 'default') void Notification.requestPermission().then(permission => { if (permission === 'granted') notify() }).catch(() => undefined) }, [state.timer]); return <div className="app-shell"><header className="topbar"><NavLink to="/today" className="brand"><span className="brand-mark"><Check size={19} /></span><span><b>刻度</b><small>专注计划助手</small></span></NavLink><nav className="desktop-nav" aria-label="主导航">{nav.map(([to, label, Icon]) => <NavLink key={to} to={to}><Icon /><span>{label}</span></NavLink>)}</nav><span className={cn('privacy', storageStatus === 'error' && 'storage-error')}><ShieldCheck /> {storageLabel}</span></header><main><Suspense fallback={<div className="page route-loading" role="status">正在整理统计数据…</div>}><Routes><Route path="/today" element={<Today />} /><Route path="/tasks" element={<Tasks />} /><Route path="/calendar" element={<CalendarPage />} /><Route path="/timer" element={<TimerPageExternal />} /><Route path="/review" element={<ReviewPage />} /><Route path="/stats" element={<StatsPage />} /><Route path="/sleep" element={<Sleep />} /><Route path="/settings" element={<SettingsPage />} /><Route path="/health" element={<HealthPage />} /><Route path="/data" element={<DataManagementPage />} /><Route path="/more" element={<MorePage />} /><Route path="*" element={<Navigate to="/today" replace />} /></Routes></Suspense></main><MobileNav /></div> }
@@ -49,7 +49,107 @@ function TaskDialog({ close, task }: { close: () => void; task?: Task }) { const
 
 function CalendarPage() { const { state, dispatch } = useApp(); const [month, setMonth] = useState(startOfMonth(new Date())); const [selected, setSelected] = useState(today); const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) }); const offset = getDay(days[0]); const selectedTasks = state.tasks.filter(t => t.plannedDate === selected); const selectedArchived = (state.completions ?? []).filter(item => item.plannedDate === selected); return <Page eyebrow="月度视野" title="看见时间的形状"><div className="calendar-layout"><Card className="calendar-card" title={format(month, 'yyyy 年 M 月')} action={<div className="icon-pair"><button onClick={() => setMonth(subMonths(month, 1))} aria-label="上个月"><ChevronLeft /></button><button onClick={() => setMonth(addMonths(month, 1))} aria-label="下个月"><ChevronRight /></button></div>}><div className="weekdays">{'日一二三四五六'.split('').map(x => <span key={x}>{x}</span>)}</div><div className="month-grid">{Array.from({ length: offset }).map((_, i) => <span key={`x${i}`} />)}{days.map(d => { const key = format(d, 'yyyy-MM-dd'), ts = state.tasks.filter(t => t.plannedDate === key).length + (state.completions ?? []).filter(item => item.plannedDate === key).length, focus = state.sessions.filter(s => s.startedAt.slice(0, 10) === key).reduce((a, b) => a + b.minutes, 0), reviewed = state.reviews.some(review => review.date === key); return <button key={key} className={cn(key === selected && 'selected', key === today && 'today')} onClick={() => setSelected(key)}><b>{format(d, 'd')}</b><small>{ts ? `${ts} 项` : ''}</small>{focus > 0 && <i />}{reviewed && <i className="review-marker" title="已有复盘" />}</button> })}</div></Card><Card title={format(parseISO(selected), 'M月d日 EEEE', { locale: zhCN })}><div className="calendar-day-content">{selectedTasks.length || selectedArchived.length ? <div className="task-list compact">{selectedTasks.map(t => <TaskRow key={t.id} task={t} onToggle={() => dispatch({ type: 'TOGGLE_TASK', id: t.id })} />)}{selectedArchived.map(item => <ArchivedCompletionRow key={item.id} completion={item} />)}</div> : <Empty icon={CalendarDays} title="这一天很轻盈" body="没有安排任务，给自己留一点余白。" />}<div className="calendar-review"><div className="section-label"><BookOpenCheck /><span>当日复盘</span></div><ReviewEditor key={selected} date={selected} compact /></div></div></Card></div></Page> }
 
-function ReviewEditor({ date, compact = false }: { date: string; compact?: boolean }) { const { state, dispatch, storageStatus } = useApp(); const old = state.reviews.find(r => r.date === date); const storedDraft = useRef(loadReviewDraft(date)); const reviewId = useRef(old?.id ?? crypto.randomUUID()); const initialForm = storedDraft.current ?? { summary: old?.summary ?? '', improvement: old?.improvement ?? '', tomorrow: old?.tomorrow ?? '' }; const [form, setForm] = useState<ReviewDraftFields>(initialForm); const [autoStatus, setAutoStatus] = useState<'idle' | 'pending' | 'saving' | 'saved'>(storedDraft.current ? 'pending' : 'idle'); const [exportNotice, setExportNotice] = useState(''); const [isNarrow, setIsNarrow] = useState(() => window.matchMedia?.('(max-width: 700px)').matches ?? false); const [editingField, setEditingField] = useState<keyof ReviewDraftFields>(); const [editorValue, setEditorValue] = useState(''); const sawRepositorySaving = useRef(false); useEffect(() => { const query = window.matchMedia?.('(max-width: 700px)'); if (!query) return; const update = () => setIsNarrow(query.matches); query.addEventListener?.('change', update); return () => query.removeEventListener?.('change', update) }, []); useEffect(() => { if (!editingField) return; const previous = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = previous } }, [editingField]); useEffect(() => { if (autoStatus !== 'pending') return; const timer = window.setTimeout(() => { dispatch({ type: 'SAVE_REVIEW', review: { id: reviewId.current, date, ...form } }); sawRepositorySaving.current = false; setAutoStatus('saving') }, 650); return () => window.clearTimeout(timer) }, [autoStatus, date, dispatch, form]); useEffect(() => { if (autoStatus !== 'saving') return; if (storageStatus === 'saving') sawRepositorySaving.current = true; if (storageStatus === 'saved' && sawRepositorySaving.current) { clearReviewDraft(date); setAutoStatus('saved') } }, [autoStatus, date, storageStatus]); const fields = [['summary', '今日收获', '记录进展、收获或值得保留的片段…'], ['improvement', '可以改进', '写下一条具体、可执行的调整…'], ['tomorrow', '明日计划', '为明天留下一个清晰的起点…']] as const; function review(): Review { return { id: reviewId.current, date, ...form } } function updateField(field: keyof ReviewDraftFields, value: string) { const next = { ...form, [field]: value }; setForm(next); storeReviewDraft(date, next); setAutoStatus('pending'); setExportNotice('') } function save() { dispatch({ type: 'SAVE_REVIEW', review: review() }); sawRepositorySaving.current = false; setAutoStatus('saving') } async function exportMarkdown() { setExportNotice(''); try { const result = await downloadReviewMarkdown(state, review()); setExportNotice(result === 'cancelled' ? '已取消导出' : result === 'shared' ? '已交给系统分享' : 'Markdown 已保存') } catch { setExportNotice('导出失败，请稍后重试') } } function openEditor(field: keyof ReviewDraftFields) { if (!isNarrow) return; setEditingField(field); setEditorValue(form[field]) } function confirmEditor() { if (!editingField) return; updateField(editingField, editorValue); setEditingField(undefined) } const saveNotice = autoStatus === 'pending' ? '等待自动保存…' : autoStatus === 'saving' ? '正在保存…' : autoStatus === 'saved' ? '已自动保存在本机' : exportNotice; return <div className={cn('review-form', compact && 'compact-review')}>{fields.map(([field, label, placeholder]) => <label key={field}>{label}<textarea aria-label={`${date} ${label}`} value={form[field]} readOnly={isNarrow} onFocus={() => openEditor(field)} onClick={() => openEditor(field)} onChange={event => updateField(field, event.target.value)} placeholder={placeholder} />{isNarrow && <small className="review-edit-hint">点击进入专注编辑</small>}</label>)}<div className="save-row"><span aria-live="polite">{saveNotice}</span><Button kind="quiet" onClick={() => void exportMarkdown()}><Download /> 导出 Markdown</Button><Button onClick={save}><Check /> 立即保存</Button></div>{editingField && <div className="review-editor-backdrop" role="presentation"><section className="review-editor-sheet" role="dialog" aria-modal="true" aria-labelledby="review-editor-title"><header><button type="button" onClick={() => setEditingField(undefined)}>取消</button><div><p>{format(parseISO(date), 'M月d日', { locale: zhCN })}</p><h2 id="review-editor-title">{fields.find(([field]) => field === editingField)?.[1]}</h2></div><button type="button" className="confirm" onClick={confirmEditor}>确认</button></header><textarea autoFocus aria-label="复盘专注编辑框" value={editorValue} onChange={event => setEditorValue(event.target.value)} placeholder={fields.find(([field]) => field === editingField)?.[2]} /><p>点击确认后写回复盘，并立即进入自动保存。</p></section></div>}</div> }
+function ReviewEditor({ date, compact = false }: { date: string; compact?: boolean }) {
+  const { state, dispatch, storageStatus } = useApp()
+  const old = state.reviews.find(r => r.date === date)
+  const storedDraft = useRef(loadReviewDraft(date))
+  const reviewId = useRef(old?.id ?? crypto.randomUUID())
+  const initialForm = storedDraft.current ?? { summary: old?.summary ?? '', improvement: old?.improvement ?? '', tomorrow: old?.tomorrow ?? '' }
+  const [form, setForm] = useState<ReviewDraftFields>(initialForm)
+  const [autoStatus, setAutoStatus] = useState<'idle' | 'pending' | 'saving' | 'saved'>(storedDraft.current ? 'pending' : 'idle')
+  const [exportNotice, setExportNotice] = useState('')
+  const [isNarrow, setIsNarrow] = useState(() => window.matchMedia?.('(max-width: 700px)').matches ?? false)
+  const [editingField, setEditingField] = useState<keyof ReviewDraftFields>()
+  const [editorValue, setEditorValue] = useState('')
+  const saveRequested = useRef(false)
+
+  useEffect(() => {
+    const query = window.matchMedia?.('(max-width: 700px)')
+    if (!query) return
+    const update = () => setIsNarrow(query.matches)
+    query.addEventListener?.('change', update)
+    return () => query.removeEventListener?.('change', update)
+  }, [])
+
+  useEffect(() => {
+    if (!editingField) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previous }
+  }, [editingField])
+
+  useEffect(() => {
+    if (autoStatus !== 'pending') return
+    const timer = window.setTimeout(() => {
+      saveRequested.current = true
+      dispatch({ type: 'SAVE_REVIEW', review: { id: reviewId.current, date, ...form } })
+      setAutoStatus('saving')
+    }, 650)
+    return () => window.clearTimeout(timer)
+  }, [autoStatus, date, dispatch, form])
+
+  useEffect(() => {
+    if (autoStatus !== 'saving') return
+    if (storageStatus !== 'saved' || !saveRequested.current) return
+    const timer = window.setTimeout(() => {
+      clearReviewDraft(date)
+      saveRequested.current = false
+      setAutoStatus('saved')
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [autoStatus, date, storageStatus])
+
+  const fields = [['summary', '今日收获', '记录进展、收获或值得保留的片段…'], ['improvement', '可以改进', '写下一条具体、可执行的调整…'], ['tomorrow', '明日计划', '为明天留下一个清晰的起点…']] as const
+  function review(): Review { return { id: reviewId.current, date, ...form } }
+  function updateField(field: keyof ReviewDraftFields, value: string) {
+    const next = { ...form, [field]: value }
+    setForm(next)
+    storeReviewDraft(date, next)
+    setAutoStatus('pending')
+    setExportNotice('')
+  }
+  function save() {
+    saveRequested.current = true
+    dispatch({ type: 'SAVE_REVIEW', review: review() })
+    setAutoStatus('saving')
+  }
+  async function exportMarkdown() {
+    setExportNotice('')
+    try {
+      const result = await downloadReviewMarkdown(state, review())
+      setExportNotice(result === 'cancelled' ? '已取消导出' : result === 'shared' ? '已交给系统分享' : 'Markdown 已保存')
+    } catch {
+      setExportNotice('导出失败，请稍后重试')
+    }
+  }
+  function openEditor(field: keyof ReviewDraftFields) {
+    if (!isNarrow) return
+    setEditingField(field)
+    setEditorValue(form[field])
+  }
+  function confirmEditor() {
+    if (!editingField) return
+    updateField(editingField, editorValue)
+    setEditingField(undefined)
+  }
+
+  const saveNotice = autoStatus === 'pending'
+    ? '等待自动保存…'
+    : autoStatus === 'saving'
+      ? '正在保存…'
+      : autoStatus === 'saved'
+        ? '已自动保存'
+        : exportNotice
+  const manualSaveButton = autoStatus === 'saved'
+    ? null
+    : <Button onClick={save}><Check /> 保存当前复盘</Button>
+
+  return <div className={cn('review-form', compact && 'compact-review')}>
+    {fields.map(([field, label, placeholder]) => <label key={field}>{label}<textarea aria-label={`${date} ${label}`} value={form[field]} readOnly={isNarrow} onFocus={() => openEditor(field)} onClick={() => openEditor(field)} onChange={event => updateField(field, event.target.value)} placeholder={placeholder} />{isNarrow && <small className="review-edit-hint">点击进入专注编辑</small>}</label>)}
+    <div className="save-row"><span aria-live="polite">{saveNotice}</span><Button kind="quiet" onClick={() => void exportMarkdown()}><Download /> 导出 Markdown</Button>{manualSaveButton}</div>
+    {editingField && <div className="review-editor-backdrop" role="presentation"><section className="review-editor-sheet" role="dialog" aria-modal="true" aria-labelledby="review-editor-title"><header><button type="button" onClick={() => setEditingField(undefined)}>取消</button><div><p>{format(parseISO(date), 'M月d日', { locale: zhCN })}</p><h2 id="review-editor-title">{fields.find(([field]) => field === editingField)?.[1]}</h2></div><button type="button" className="confirm" onClick={confirmEditor}>确认</button></header><textarea autoFocus aria-label="复盘专注编辑框" value={editorValue} onChange={event => setEditorValue(event.target.value)} placeholder={fields.find(([field]) => field === editingField)?.[2]} /><p>点击确认后写回复盘，并立即进入自动保存。</p></section></div>}
+  </div>
+}
 
 function HealthPage() { return <Page eyebrow="数据诊断" title="数据健康"><Card><DataHealth /></Card></Page> }
 function DataManagementPage() { const { dispatch } = useApp(); function reset() { if (window.confirm('清空当前浏览器中的任务、专注、复盘和睡眠记录？此操作不可恢复，请先导出备份。')) dispatch({ type: 'RESET_APP' }) } return <Page eyebrow="数据工具" title="数据管理"><Card><DataManagement /><div className="data-danger"><Button kind="danger" onClick={reset}><RotateCcw /> 清空所有数据</Button></div></Card></Page> }
