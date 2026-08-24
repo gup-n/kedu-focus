@@ -3,6 +3,13 @@ import type { AppState, Task, TaskCompletion } from '../domain/types'
 export const COMPLETION_RECENT_DAYS = 30
 export const RECURRING_COMPACTION_DAYS = 90
 
+export interface CompletionGroup {
+  key: string
+  title: string
+  categoryId: string
+  items: TaskCompletion[]
+}
+
 const dayMs = 24 * 60 * 60 * 1000
 
 export function isRecurringTask(task: Task) {
@@ -46,4 +53,20 @@ export function compactRecurringTaskHistory(state: AppState, now = Date.now()): 
 export function suppressCompactedTasks(tasks: Task[], completions: TaskCompletion[] = []) {
   const ids = new Set(completions.map(completion => completion.id))
   return tasks.filter(task => !ids.has(task.id))
+}
+
+/** Group archived recurring completions for compact display without changing stored records. */
+export function groupTaskCompletions(completions: TaskCompletion[]): CompletionGroup[] {
+  const groups = new Map<string, CompletionGroup>()
+  for (const completion of completions) {
+    const key = completion.recurrenceSourceId
+      ? `source:${completion.recurrenceSourceId}`
+      : `title:${completion.title.trim().toLocaleLowerCase()}|category:${completion.categoryId}`
+    const group = groups.get(key)
+    if (group) group.items.push(completion)
+    else groups.set(key, { key, title: completion.title, categoryId: completion.categoryId, items: [completion] })
+  }
+  return [...groups.values()]
+    .map(group => ({ ...group, items: [...group.items].sort((a, b) => b.completedAt.localeCompare(a.completedAt)) }))
+    .sort((a, b) => (b.items[0]?.completedAt ?? '').localeCompare(a.items[0]?.completedAt ?? ''))
 }
