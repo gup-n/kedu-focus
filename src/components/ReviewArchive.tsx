@@ -12,8 +12,13 @@ export function ReviewArchive({ selectedDate, onSelectDate }: { selectedDate: st
   const [kind, setKind] = useState<ReviewPeriodKind>('week')
   const [query, setQuery] = useState('')
   const [notice, setNotice] = useState('')
+  const [historyPage, setHistoryPage] = useState(1)
   const summary = useMemo(() => periodReviewSummary(state, kind, selectedDate), [state, kind, selectedDate])
   const history = useMemo(() => state.reviews.filter(review => `${review.date}${review.summary}${review.improvement}${review.tomorrow}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort((a, b) => b.date.localeCompare(a.date)), [state.reviews, query])
+  const pageSize = 10
+  const pageCount = Math.max(1, Math.ceil(history.length / pageSize))
+  const currentPage = Math.min(historyPage, pageCount)
+  const visibleHistory = history.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   async function exportPeriod() {
     setNotice('')
@@ -32,6 +37,6 @@ export function ReviewArchive({ selectedDate, onSelectDate }: { selectedDate: st
       <div className="period-review-list">{summary.reviews.length ? summary.reviews.map(review => <button key={review.id} onClick={() => onSelectDate(review.date)}><BookOpenCheck/><span><b>{review.date}</b><small>{review.summary || review.improvement || review.tomorrow || '已记录空白复盘'}</small></span><ChevronRight/></button>) : <p>这个周期还没有文字复盘，先记录今天即可形成回顾。</p>}</div>
       <div className="save-row"><span>{notice}</span><button className="btn quiet" onClick={() => void exportPeriod()}><Download/> 导出{kind === 'week' ? '周' : '月'}复盘</button></div>
     </section>
-    <section className="card review-history"><div className="card-head"><h2>历史复盘</h2><span>{history.length} 篇</span></div><label className="search"><Search/><input aria-label="搜索历史复盘" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索日期、收获、改进或计划…"/></label><div>{history.length ? history.map(review => <button key={review.id} onClick={() => onSelectDate(review.date)}><span><b>{review.date}</b><small>{review.summary || review.improvement || review.tomorrow || '空白复盘'}</small></span><ChevronRight/></button>) : <p className="muted">没有找到符合条件的复盘。</p>}</div></section>
+    <section className="card review-history"><div className="card-head"><h2>历史复盘</h2><span>{history.length} 篇</span></div><label className="search"><Search/><input aria-label="搜索历史复盘" value={query} onChange={event => { setQuery(event.target.value); setHistoryPage(1) }} placeholder="搜索日期、收获、改进或计划…"/></label><div>{history.length ? visibleHistory.map(review => <button key={review.id} onClick={() => onSelectDate(review.date)}><span><b>{review.date}</b><small>{review.summary || review.improvement || review.tomorrow || '空白复盘'}</small></span><ChevronRight/></button>) : <p className="muted">没有找到符合条件的复盘。</p>}</div>{history.length > pageSize && <div className="review-pagination" aria-label="历史复盘分页"><button disabled={currentPage === 1} onClick={() => setHistoryPage(page => Math.max(1, Math.min(pageCount, page - 1)))}>上一页</button><span>第 {currentPage} / {pageCount} 页</span><button disabled={currentPage === pageCount} onClick={() => setHistoryPage(page => Math.min(pageCount, page + 1))}>下一页</button></div>}</section>
   </div>
 }

@@ -35,29 +35,13 @@ async function blobToBase64(blob: Blob) {
 }
 
 async function saveNativeAndroid(blob: Blob, filename: string): Promise<FileExportResult> {
-  const [{ Directory, Filesystem }, { Share }] = await Promise.all([
-    import('@capacitor/filesystem'),
-    import('@capacitor/share'),
-  ])
-  const uri = (await Filesystem.writeFile({
-    path: filename,
+  const { Directory, Filesystem } = await import('@capacitor/filesystem')
+  await Filesystem.writeFile({
+    path: `kedu-focus/${filename}`,
     data: await blobToBase64(blob),
     directory: Directory.Documents,
     recursive: true,
-  })).uri
-
-  // The file is already persisted before sharing. Dismissing or unavailable share UI
-  // must therefore still report success and must not make callers discard their data.
-  try {
-    await Share.share({
-      title: filename,
-      text: `刻度备份：${filename}`,
-      files: [uri],
-      dialogTitle: `保存或分享 ${filename}`,
-    })
-  } catch {
-    // Android may report a canceled share sheet as an exception. The saved file remains.
-  }
+  })
   return 'saved'
 }
 

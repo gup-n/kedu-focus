@@ -19,7 +19,7 @@ afterEach(() => {
 })
 
 describe('exportFile', () => {
-  it('persists files through Capacitor and opens the Android share sheet', async () => {
+  it('persists files directly in the Android app folder', async () => {
     vi.spyOn(Capacitor, 'isNativePlatform').mockReturnValue(true)
     vi.spyOn(Capacitor, 'getPlatform').mockReturnValue('android')
     vi.mocked(Filesystem.writeFile).mockResolvedValue({ uri: 'content://backup.json' })
@@ -27,12 +27,12 @@ describe('exportFile', () => {
 
     await expect(exportFile(['刻度'], '刻度备份.json', 'application/json;charset=utf-8')).resolves.toBe('saved')
     expect(Filesystem.writeFile).toHaveBeenCalledWith(expect.objectContaining({
-      path: '刻度备份.json',
+      path: 'kedu-focus/刻度备份.json',
       directory: Directory.Documents,
       data: expect.any(String),
       recursive: true,
     }))
-    expect(Share.share).toHaveBeenCalledWith(expect.objectContaining({ files: ['content://backup.json'] }))
+    expect(Share.share).not.toHaveBeenCalled()
   })
 
   it('uses the system file picker when available', async () => {

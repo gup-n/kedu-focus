@@ -167,7 +167,7 @@ export function DataManagement() {
 
   return <>
     <p className="muted">JSON 备份包含全部任务（含删除墓碑）、分类、专注、复盘、睡眠、偏好和计时状态。导入前可先预览，应用时会自动备份当前数据。</p>
-    {isNativeAndroid() && <p className="data-location" role="note"><FileJson /> Android 备份位置：文件管理器 → 内部存储 → Documents → 以“刻度_”开头的 JSON 文件。</p>}
+    {isNativeAndroid() && <p className="data-location" role="note"><FileJson /> Android 备份位置：文件管理器 → 内部存储 → Documents → kedu-focus → 以“刻度_”开头的 JSON 文件。导出后会直接保存，不再弹出打开方式。</p>}
     <input ref={input} className="visually-hidden" aria-label="选择 JSON 备份文件" type="file" accept="application/json,.json" onChange={event => void loadFile(event.target.files?.[0])}/>
     <div className="data-actions">
       <ActionButton disabled={exporting} onClick={exportJson}><Download/> {exporting ? '正在处理…' : '导出 JSON 备份'}</ActionButton>
