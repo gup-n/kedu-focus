@@ -11,6 +11,7 @@ vite.config.d.ts
 gradle-*-bin.zip
 
 # Local-only handoff and test notes
+docs/
 docs/HANDOFF.md
 docs/SESSION_LOG.md
 docs/sync-server-SESSION_HANDOFF.md
