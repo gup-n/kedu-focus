@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type TouchEvent } from 'react'
 import { addDays, format, parseISO, subDays } from 'date-fns'
 import { BookOpenCheck, ChevronLeft, ChevronRight, Download, Pencil, Search, X } from 'lucide-react'
 import { useApp } from '../state/AppContext'
@@ -11,14 +11,29 @@ const duration = (seconds: number) => seconds < 3600 ? `${Math.floor(seconds / 6
 const sleepDuration = (minutes: number) => minutes ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : '暂无记录'
 
 function ReviewPreview({ review, state, close, edit, move }: { review: Review; state: ReturnType<typeof useApp>['state']; close: () => void; edit: () => void; move: (date: string) => void }) {
+  const touchStart = useRef<{ x: number; y: number } | undefined>(undefined)
   const markdown = buildReviewMarkdown(state, review)
   const title = format(parseISO(review.date), 'yyyy年M月d日')
   const text = (value: string) => value.trim() || '（未填写）'
+  function handleTouchStart(event: TouchEvent<HTMLElement>) {
+    const touch = event.touches[0]
+    if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY }
+  }
+  function handleTouchEnd(event: TouchEvent<HTMLElement>) {
+    const start = touchStart.current
+    touchStart.current = undefined
+    const touch = event.changedTouches[0]
+    if (!start || !touch) return
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) return
+    const nextDate = deltaX < 0 ? addDays(parseISO(review.date), 1) : subDays(parseISO(review.date), 1)
+    move(format(nextDate, 'yyyy-MM-dd'))
+  }
   return <div className="review-preview-backdrop" role="presentation">
-    <section className="review-preview" role="dialog" aria-modal="true" aria-labelledby="review-preview-title">
-      <header className="review-preview-head"><button onClick={() => move(format(subDays(parseISO(review.date), 1), 'yyyy-MM-dd'))} aria-label="上一天"><ChevronLeft /></button><div><p>复盘预览</p><h2 id="review-preview-title">{title}</h2></div><button onClick={() => move(format(addDays(parseISO(review.date), 1), 'yyyy-MM-dd'))} aria-label="下一天"><ChevronRight /></button><button className="review-preview-close" onClick={close} aria-label="关闭预览"><X /></button></header>
-      <div className="review-preview-date"><label>选择日期<input type="date" value={review.date} onChange={event => move(event.target.value)} /></label><span>只读预览 · 可左右切换日期</span></div>
-      <article className="review-markdown-preview"><h1>{title}</h1><blockquote>{markdown.split('\n').find(line => line.startsWith('> '))?.slice(2)}</blockquote><section><h2>今日收获</h2><p>{text(review.summary)}</p></section><section><h2>可以改进</h2><p>{text(review.improvement)}</p></section><section><h2>明日计划</h2><p>{text(review.tomorrow)}</p></section></article>
+    <section className="review-preview" role="dialog" aria-modal="true" aria-labelledby="review-preview-title" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={() => { touchStart.current = undefined }}>
+      <header className="review-preview-head"><button onClick={() => move(format(subDays(parseISO(review.date), 1), 'yyyy-MM-dd'))} aria-label="上一天"><ChevronLeft /></button><span aria-hidden="true" /><button onClick={() => move(format(addDays(parseISO(review.date), 1), 'yyyy-MM-dd'))} aria-label="下一天"><ChevronRight /></button><button className="review-preview-close" onClick={close} aria-label="关闭预览"><X /></button></header>
+      <article className="review-markdown-preview"><h1 id="review-preview-title">{title}</h1><blockquote>{markdown.split('\n').find(line => line.startsWith('> '))?.slice(2)}</blockquote><section><h2>今日收获</h2><p>{text(review.summary)}</p></section><section><h2>可以改进</h2><p>{text(review.improvement)}</p></section><section><h2>明日计划</h2><p>{text(review.tomorrow)}</p></section></article>
       <footer className="review-preview-actions"><button className="btn quiet" onClick={edit}><Pencil /> 编辑这一天</button><button className="btn quiet" onClick={close}>返回历史复盘</button></footer>
     </section>
   </div>
@@ -52,7 +67,7 @@ export function ReviewArchive({ selectedDate, onSelectDate }: { selectedDate: st
 
   return <div className="review-archive">
     <section className="card review-history"><div className="card-head"><div><p className="eyebrow">历史复盘</p><h2>完整记录与周期模板</h2></div><span>{history.length} 篇</span></div>
-      <div className="review-period-toolbar"><div><p className="eyebrow">周期回顾</p><b>{summary.start} — {summary.end}</b></div><label>回顾日期<input aria-label="周期回顾日期" type="date" value={selectedDate} onChange={event => onSelectDate(event.target.value)} /></label><div className="segmented"><button className={kind === 'week' ? 'active' : ''} onClick={() => setKind('week')}>周</button><button className={kind === 'month' ? 'active' : ''} onClick={() => setKind('month')}>月</button></div></div>
+      <div className="review-period-toolbar"><div><p className="eyebrow">周期回顾</p><b>{summary.start} — {summary.end}</b></div><div className="segmented"><button className={kind === 'week' ? 'active' : ''} onClick={() => setKind('week')}>周</button><button className={kind === 'month' ? 'active' : ''} onClick={() => setKind('month')}>月</button></div></div>
       <div className="period-metrics"><div><span>完成任务</span><strong>{summary.completedTasks}</strong><small>项</small></div><div><span>专注时长</span><strong>{duration(summary.focusSeconds)}</strong></div><div><span>平均睡眠</span><strong>{sleepDuration(summary.averageSleepMinutes)}</strong></div><div><span>文字复盘</span><strong>{summary.reviews.length}</strong><small>天</small></div></div>
       <div className="period-review-actions"><span>{notice}</span><button className="btn quiet" aria-label={`导出${kind === 'week' ? '周' : '月'}复盘`} onClick={() => void exportPeriod()}><Download /> 导出{kind === 'week' ? '周' : '月'}复盘模板</button></div>
       <label className="search"><Search /><input aria-label="搜索历史复盘" value={query} onChange={event => { setQuery(event.target.value); setHistoryPage(1) }} placeholder="搜索日期、收获、改进或计划…" /></label>

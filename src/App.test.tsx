@@ -217,6 +217,31 @@ describe('timer and review workflows', () => {
     expect(screen.getAllByText(/完成了最重要的梳理工作/).length).toBeGreaterThan(0)
   })
 
+  it('puts settings last in More and switches preview dates with a horizontal swipe', async () => {
+    renderRoute('/more')
+    await screen.findByText('已保存在本机')
+    const moreGrid = document.querySelector<HTMLElement>('.more-grid')
+    expect(moreGrid).not.toBeNull()
+    expect(within(moreGrid!).getAllByRole('link').map(link => link.getAttribute('href'))).toEqual(['/calendar', '/review', '/sleep', '/health', '/data', '/settings'])
+
+    const state = structuredClone(seedState)
+    const nextDate = addShanghaiDays(state.reviews[0].date, 1)
+    state.reviews.push({ id: 'r2', date: nextDate, summary: '下一天的收获', improvement: '下一天的改进', tomorrow: '下一天的计划' })
+    cleanup()
+    renderRoute('/review', state)
+    await screen.findByText('已保存在本机')
+    expect(screen.getByLabelText('复盘日期')).toBeInTheDocument()
+    expect(screen.queryByLabelText('周期回顾日期')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(state.reviews[0].date) }))
+    const dialog = screen.getByRole('dialog')
+    expect(screen.queryByText('复盘预览')).not.toBeInTheDocument()
+    expect(screen.queryByText('只读预览')).not.toBeInTheDocument()
+    fireEvent.touchStart(dialog, { touches: [{ clientX: 220, clientY: 100 }] })
+    fireEvent.touchEnd(dialog, { changedTouches: [{ clientX: 120, clientY: 105 }] })
+    expect(await within(dialog).findByRole('heading', { name: new RegExp(nextDate.slice(0, 4) + '年') })).toBeInTheDocument()
+  })
+
   it('requires confirmation and immediately hides a deleted focus session', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
     renderRoute('/timer')
