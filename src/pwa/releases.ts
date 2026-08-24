@@ -9,6 +9,18 @@ export interface ReleaseNote {
 
 export const releases: ReleaseNote[] = [
   {
+    version: '0.9.8',
+    date: '2026-08-24',
+    title: '更多与复盘预览体验优化',
+    summary: '调整更多入口和复盘历史、预览交互，让手机端浏览复盘更紧凑顺手。',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.8/app-release.apk',
+    changes: [
+      '设置入口移至更多页面底部，数据健康和数据管理保持独立入口',
+      '历史复盘分页保持单行，并移除与编写复盘重复的回顾日期选择',
+      '复盘预览支持手机左右滑动切换日期，压缩顶部信息区域',
+    ],
+  },
+  {
     version: '0.9.7',
     date: '2026-08-24',
     title: '优化桌面入口与复盘体验',
