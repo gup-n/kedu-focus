@@ -60,6 +60,8 @@ export function PwaProvider({ children }: { children: ReactNode }) {
     onRegisteredSW: (_url, registration) => {
       if (!registration) return
       if (nativeAndroid) {
+        setNeedRefresh(false)
+        setOfflineReady(false)
         void registration.unregister()
         return
       }
@@ -269,6 +271,12 @@ export function PwaProvider({ children }: { children: ReactNode }) {
     setShowInstalledRelease(false)
   }
 
+  function dismissUpdate() {
+    setNeedRefresh(false)
+    setDetectedUpdate(false)
+    if (nativeAndroid && nativeUpdateState !== 'downloading') setNativeUpdateState('idle')
+  }
+
   const nativeUpdateAvailable = ['available', 'downloading', 'ready', 'installing', 'failed'].includes(nativeUpdateState)
   const updateAvailable = nativeAndroid ? nativeUpdateAvailable : needRefresh || detectedUpdate
   const showNotice = updateAvailable || (!nativeAndroid && offlineReady) || showInstalledRelease
@@ -298,8 +306,7 @@ export function PwaProvider({ children }: { children: ReactNode }) {
       {nativeAndroid && nativeUpdateAvailable && nativeUpdateState !== 'installing' && <button className="pwa-update" onClick={() => void (nativeUpdateState === 'downloading' ? cancelUpdateDownload() : downloadUpdate())}>{nativeActionLabel}</button>}
       <button className="pwa-dismiss" aria-label={!nativeAndroid && needRefresh ? '稍后更新' : updateAvailable ? '知道了' : showInstalledRelease ? '知道了' : '关闭提示'} onClick={() => {
         if (!nativeAndroid && needRefresh) setNeedRefresh(false)
-        else if (updateAvailable && nativeAndroid && nativeUpdateState !== 'downloading') setNativeUpdateState('idle')
-        else if (updateAvailable) setDetectedUpdate(false)
+        else if (updateAvailable) dismissUpdate()
         else if (showInstalledRelease) dismissInstalledRelease()
         else setOfflineReady(false)
       }}>{!nativeAndroid && needRefresh ? '稍后' : updateAvailable ? '知道了' : showInstalledRelease ? '知道了' : <X />}</button>

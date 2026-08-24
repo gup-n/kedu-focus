@@ -47,6 +47,7 @@ export const DEFAULT_WEBDAV_FILENAME = 'kedu-focus-backup.json'
 export const KEDU_SYNC_SERVER_HEADER = 'x-kedu-sync-server'
 export const KEDU_SYNC_EMPTY_HEADER = 'x-kedu-sync-empty'
 export const KEDU_SYNC_ARCHIVE_HEADER = 'x-kedu-sync-archived-version'
+export const WEBDAV_REQUEST_TIMEOUT_MS = 15_000
 
 export class WebDavError extends Error {
   constructor(message: string, public readonly status?: number) {
@@ -120,9 +121,12 @@ function authorization(config: WebDavConfig) {
 
 async function request(config: WebDavConfig, init: RequestInit, target = webDavTarget(config)): Promise<Response> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new WebDavError('当前处于离线状态，连接网络后再同步。')
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), WEBDAV_REQUEST_TIMEOUT_MS)
   try {
     return await fetch(target, {
       ...init,
+      signal: controller.signal,
       cache: 'no-store',
       headers: {
         Authorization: authorization(config),
@@ -131,7 +135,10 @@ async function request(config: WebDavConfig, init: RequestInit, target = webDavT
     })
   } catch (reason) {
     if (reason instanceof WebDavError) throw reason
+    if (reason instanceof DOMException && reason.name === 'AbortError') throw new WebDavError(`WebDAV 请求超过 ${WEBDAV_REQUEST_TIMEOUT_MS / 1000} 秒仍未响应，请检查服务器地址和网络。`)
     throw new WebDavError('无法连接 WebDAV。请检查地址、网络，以及服务器是否允许浏览器跨域访问（CORS）。')
+  } finally {
+    window.clearTimeout(timeout)
   }
 }
 
