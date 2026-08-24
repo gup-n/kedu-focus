@@ -8,6 +8,7 @@ vite.config.d.ts
 .gradle-dist/
 *.jks
 *.keystore
+gradle-*-bin.zip
 
 # Local-only handoff and test notes
 docs/HANDOFF.md
