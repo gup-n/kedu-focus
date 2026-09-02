@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.9.10",
+    "date": "2026-09-02",
+    "title": "优化复盘导出路径",
+    "summary": "支持按日期范围导出复盘，并可合并为单个文件或一次写入多个文件。",
+    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.10/app-release.apk",
+    "changes": [
+      "多文件导出改为一次选择目录，避免逐个选择保存路径",
+      "Android 端多文件复盘继续保存到 Documents/kedu-focus",
+      "修复移动端复盘编辑器聚焦后键盘遮挡问题"
+    ]
+  },
+  {
     "version": "0.9.9",
     "date": "2026-08-24",
     "title": "修复 Android 复盘键盘遮挡",
