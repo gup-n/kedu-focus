@@ -98,8 +98,9 @@ body,.app-shell{min-height:100dvh}
 .review-pagination button:disabled { opacity: .45; cursor: not-allowed }
 .review-pagination span { color: var(--muted); font-size: 11px }
 @media (max-width: 700px) {
-  .review-editor-backdrop { align-items: stretch; height: var(--visual-viewport-height, 100dvh); max-height: var(--visual-viewport-height, 100dvh); overflow: hidden; transform: translateY(var(--visual-viewport-top, 0px)) }
-  .review-editor-sheet { width: 100%; height: var(--visual-viewport-height, calc(100dvh - var(--keyboard-inset, 0px))); max-height: var(--visual-viewport-height, calc(100dvh - var(--keyboard-inset, 0px))); border-radius: 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); align-self: start }
+  .review-editor-backdrop { align-items: end; top: var(--visual-viewport-top, 0px); bottom: auto; height: var(--visual-viewport-height, calc(100dvh - var(--keyboard-inset, 0px))); max-height: var(--visual-viewport-height, calc(100dvh - var(--keyboard-inset, 0px))); overflow: hidden; transform: none }
+  .review-editor-sheet { width: 100%; height: 100%; max-height: 100%; border-radius: 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); align-self: end; grid-template-rows: auto minmax(0, 1fr) auto }
+  .review-editor-sheet > textarea { min-height: 0; height: 100%; padding: 14px; font-size: 16px; line-height: 1.7 }
 }
 /* Keep dense focus history readable when more than three sessions overlap. */
 .timeline .rail{top:50%}
