@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.9.12",
+    "date": "2026-09-02",
+    "title": "优化手机复盘编辑",
+    "summary": "编辑复盘时页面贴合键盘上方的可视区域，输入框和底部操作保持可见。",
+    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.12/app-release.apk",
+    "changes": ["移动端编辑器改为键盘上方底部对齐布局", "输入框独立滚动，减少输入法遮挡复盘内容"]
+  },
+  {
     "version": "0.9.11",
     "date": "2026-09-02",
     "title": "修复 Android 通知构建",
