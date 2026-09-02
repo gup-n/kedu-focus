@@ -115,3 +115,12 @@ body,.app-shell{min-height:100dvh}
 .review-pagination span{min-width:max-content}
 .review-preview{grid-template-rows:auto minmax(0,1fr) auto;touch-action:pan-y}
 .review-preview-head>span{min-width:0}
+
+/* Keep mobile review editing scrollable even when the field is empty. */
+.review-editor-sheet > textarea { padding-bottom: 35vh }
+.review-preview-nav { width: auto !important; min-width: 76px; display: inline-flex !important; align-items: center; justify-content: center; gap: 4px; padding: 0 8px; font-size: 11px }
+.review-preview-nav svg { width: 16px }
+.today-grid { display: flex; flex-direction: column; gap: 18px }
+.today-tasks { order: -1 }
+.hero-track { min-height: 0 }
+.hero-track .timeline, .hero-track .hours, .hero-track .track-caption { display: none }

@@ -32,6 +32,8 @@ export const ApkUpdater = registerPlugin<ApkUpdaterPlugin>('ApkUpdater')
 
 interface FocusNotificationPlugin {
   notify(options: { title: string; body: string }): Promise<void>
+  startFocus(options: { title?: string; body?: string }): Promise<void>
+  stopFocus(): Promise<void>
 }
 
 export const FocusNotification = registerPlugin<FocusNotificationPlugin>('FocusNotification')
