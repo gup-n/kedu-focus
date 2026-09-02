@@ -1,16 +1,14 @@
 [
   {
-    "version": "0.9.13",
+    "version": "0.9.14",
     "date": "2026-09-02",
-    "title": "优化复盘、今日页与专注提醒",
-    "summary": "整理复盘浏览和导出操作，简化今日页，并补充 Android 后台专注提醒。",
-    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.13/app-release.apk",
+    "title": "优化复盘导出与实时专注通知",
+    "summary": "让复盘导出入口并排显示，并在 Android 通知栏实时看到已专注时长。",
+    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.14/app-release.apk",
     "changes": [
-      "手机复盘编辑在空白内容时也保留可滚动空间",
-      "历史复盘翻页按钮明确显示“上一页/下一页”",
-      "周/月复盘导出名称去掉“模板”，按日期导出方式保持不变",
-      "今日页优先显示今日任务，移除旧刻度记录区域",
-      "Android 专注进入后台时保留持续通知，并在 25 分钟时提醒"
+      "导出周复盘与按日期导出在手机端并排显示",
+      "Android 持续通知实时显示已专注的分钟和秒数",
+      "保留 25 分钟提醒，并避免 Android 与前端重复提醒"
     ]
   },
   {

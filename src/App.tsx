@@ -39,6 +39,11 @@ function FocusNotificationBridge() {
     if (key && key !== activeKey.current) {
       activeKey.current = key
       void FocusNotification.startFocus({ title: '正在专注', body: '计时进行中，达到 25 分钟时会提醒。' }).catch(() => undefined)
+    } else if (key) {
+      const elapsed = Math.max(0, Math.floor(timer.liveElapsedSeconds ?? timer.elapsedSeconds))
+      const minutes = Math.floor(elapsed / 60)
+      const seconds = elapsed % 60
+      void FocusNotification.updateFocus({ title: '正在专注', body: `已专注 ${minutes} 分 ${String(seconds).padStart(2, '0')} 秒` }).catch(() => undefined)
     } else if (!key && activeKey.current) {
       activeKey.current = undefined
       void FocusNotification.stopFocus().catch(() => undefined)

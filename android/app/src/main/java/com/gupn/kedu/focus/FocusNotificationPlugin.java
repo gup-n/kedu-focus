@@ -42,6 +42,14 @@ public class FocusNotificationPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void updateFocus(PluginCall call) {
+        String title = call.getString("title", "正在专注");
+        String body = call.getString("body", "计时进行中");
+        postNotification(title, body, false);
+        call.resolve();
+    }
+
+    @PluginMethod
     public void notify(PluginCall call) {
         String title = call.getString("title", "专注完成");
         String body = call.getString("body", "计时仍在继续。");
