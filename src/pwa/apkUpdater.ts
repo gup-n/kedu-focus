@@ -29,3 +29,9 @@ export const emptyApkProgress: ApkDownloadProgress = {
 }
 
 export const ApkUpdater = registerPlugin<ApkUpdaterPlugin>('ApkUpdater')
+
+interface FocusNotificationPlugin {
+  notify(options: { title: string; body: string }): Promise<void>
+}
+
+export const FocusNotification = registerPlugin<FocusNotificationPlugin>('FocusNotification')
