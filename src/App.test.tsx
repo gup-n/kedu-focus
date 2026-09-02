@@ -259,6 +259,8 @@ describe('timer and review workflows', () => {
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(state.reviews[0].date) }))
     const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('button', { name: '上一页' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: '下一页' })).toBeInTheDocument()
     expect(screen.queryByText('复盘预览')).not.toBeInTheDocument()
     expect(screen.queryByText('只读预览')).not.toBeInTheDocument()
     fireEvent.touchStart(dialog, { touches: [{ clientX: 220, clientY: 100 }] })
