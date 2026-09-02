@@ -11,6 +11,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 @CapacitorPlugin(name = "FocusNotification", permissions = {
     @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS })
@@ -30,16 +31,25 @@ public class FocusNotificationPlugin extends Plugin {
             requestPermissionForAlias("notifications", call, "notificationsPermissionsCallback");
             return;
         }
+        postNotification(title, body);
+        call.resolve();
+    }
+
+    @PermissionCallback
+    public void notificationsPermissionsCallback(PluginCall call) {
+        if (getPermissionState("notifications") == com.getcapacitor.PermissionState.GRANTED) {
+            postNotification(call.getString("title", "专注完成"), call.getString("body", "计时仍在继续。"));
+            call.resolve();
+        } else {
+            call.reject("通知权限未授予");
+        }
+    }
+
+    private void postNotification(String title, String body) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext(), CHANNEL_ID)
             .setSmallIcon(com.gupn.kedu.focus.R.mipmap.ic_launcher)
             .setContentTitle(title).setContentText(body).setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true).setVibrate(new long[]{0, 220, 100, 220});
         NotificationManagerCompat.from(getContext()).notify(2501, builder.build());
-        call.resolve();
-    }
-
-    @Override
-    protected void handleOnRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.handleOnRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 }
