@@ -16,6 +16,7 @@ interface WindowWithFilePicker extends Window {
     suggestedName: string
     types: Array<{ description: string; accept: Record<string, string[]> }>
   }) => Promise<FileSystemFileHandle>
+  showDirectoryPicker?: () => Promise<{ getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle> }>
 }
 
 const cancelled = (reason: unknown) => reason instanceof DOMException && reason.name === 'AbortError'
@@ -93,4 +94,27 @@ export async function exportFile(contents: BlobPart[], filename: string, type: s
 
   downloadBlob([blob], filename, type)
   return 'downloaded'
+}
+
+export async function exportFiles(files: Array<{ contents: BlobPart[]; filename: string; type: string }>): Promise<FileExportResult> {
+  if (isNativeAndroid()) {
+    for (const file of files) await exportFile(file.contents, file.filename, file.type)
+    return 'saved'
+  }
+  const picker = (window as WindowWithFilePicker).showDirectoryPicker
+  if (picker) {
+    try {
+      const directory = await picker()
+      for (const file of files) {
+        const handle = await directory.getFileHandle(file.filename, { create: true })
+        const writable = await handle.createWritable()
+        await writable.write(new Blob(file.contents, { type: file.type }))
+        await writable.close()
+      }
+      return 'saved'
+    } catch (reason) {
+      if (cancelled(reason)) return 'cancelled'
+    }
+  }
+  throw new Error('当前环境不支持一次选择导出目录，请改用合并为单个文件。')
 }

@@ -3,7 +3,7 @@ import { addDays, eachDayOfInterval, format, parseISO, subDays } from 'date-fns'
 import { BookOpenCheck, ChevronLeft, ChevronRight, Download, Pencil, Search, X } from 'lucide-react'
 import { useApp } from '../state/AppContext'
 import type { Review } from '../domain/types'
-import { exportFile } from '../utils/fileExport'
+import { exportFile, exportFiles } from '../utils/fileExport'
 import { buildPeriodReviewMarkdown, periodReviewSummary, type ReviewPeriodKind } from '../utils/reviewPeriod'
 import { buildReviewMarkdown } from '../utils/reviewMarkdown'
 
@@ -79,7 +79,7 @@ export function ReviewArchive({ selectedDate, onSelectDate }: { selectedDate: st
         const markdown = valid.map(review => buildReviewMarkdown(state, review)).join('\n---\n\n')
         await exportFile([markdown], `刻度_复盘_${exportStart}_${exportEnd}.md`, 'text/markdown;charset=utf-8')
       } else {
-        for (const review of valid) await exportFile([buildReviewMarkdown(state, review)], `${review.date}-复盘.md`, 'text/markdown;charset=utf-8')
+        await exportFiles(valid.map(review => ({ contents: [buildReviewMarkdown(state, review)], filename: `${review.date}-复盘.md`, type: 'text/markdown;charset=utf-8' })))
       }
       setNotice(exportMode === 'single' ? '已导出合并复盘文件。' : `已导出 ${valid.length} 个复盘文件。`)
       setExportOpen(false)
