@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.9.11",
+    "date": "2026-09-02",
+    "title": "修复 Android 通知构建",
+    "summary": "修复 Android 原生通知权限回调，确保云端 Release 可以正常编译。",
+    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.11/app-release.apk",
+    "changes": ["修复 Capacitor 8 通知权限回调实现", "保留复盘导出目录优化和移动端编辑修复"]
+  },
+  {
     "version": "0.9.10",
     "date": "2026-09-02",
     "title": "优化复盘导出路径",
