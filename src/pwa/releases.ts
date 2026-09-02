@@ -9,12 +9,18 @@ export interface ReleaseNote {
 
 export const releases: ReleaseNote[] = [
   {
-    version: '0.9.12',
+    version: '0.9.13',
     date: '2026-09-02',
-    title: '优化手机复盘编辑',
-    summary: '编辑复盘时页面贴合键盘上方的可视区域，输入框和底部操作保持可见。',
-    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.12/app-release.apk',
-    changes: ['移动端编辑器改为键盘上方底部对齐布局', '输入框独立滚动，减少输入法遮挡复盘内容'],
+    title: '优化复盘、今日页与专注提醒',
+    summary: '整理复盘浏览和导出操作，简化今日页，并补充 Android 后台专注提醒。',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.13/app-release.apk',
+    changes: [
+      '手机复盘编辑在空白内容时也保留可滚动空间',
+      '历史复盘翻页按钮明确显示“上一页/下一页”',
+      '周/月复盘导出名称去掉“模板”，按日期导出方式保持不变',
+      '今日页优先显示今日任务，移除旧刻度记录区域',
+      'Android 专注进入后台时保留持续通知，并在 25 分钟时提醒',
+    ],
   },
   {
     version: '0.9.11',
