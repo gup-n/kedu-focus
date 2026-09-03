@@ -2,13 +2,11 @@
   {
     "version": "0.9.14",
     "date": "2026-09-02",
-    "title": "优化复盘导出与实时专注通知",
-    "summary": "让复盘导出入口并排显示，并在 Android 通知栏实时看到已专注时长。",
+    "title": "优化复盘导出布局",
+    "summary": "复盘导出入口在手机端并排显示，便于快速选择周期复盘或按日期导出。",
     "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.14/app-release.apk",
     "changes": [
-      "导出周复盘与按日期导出在手机端并排显示",
-      "Android 持续通知实时显示已专注的分钟和秒数",
-      "保留 25 分钟提醒，并避免 Android 与前端重复提醒"
+      "导出周复盘与按日期导出在手机端并排显示"
     ]
   },
   {
@@ -17,7 +15,7 @@
     "title": "修复 Android 通知构建",
     "summary": "修复 Android 原生通知权限回调，确保云端 Release 可以正常编译。",
     "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.11/app-release.apk",
-    "changes": ["修复 Capacitor 8 通知权限回调实现", "保留复盘导出目录优化和移动端编辑修复"]
+    "changes": ["修复 Capacitor 8 通知权限回调实现", "复盘导出目录优化和移动端编辑修复（实际设备未生效）"]
   },
   {
     "version": "0.9.10",
@@ -28,14 +26,14 @@
     "changes": [
       "多文件导出改为一次选择目录，避免逐个选择保存路径",
       "Android 端多文件复盘继续保存到 Documents/kedu-focus",
-      "修复移动端复盘编辑器聚焦后键盘遮挡问题"
+      "修复移动端复盘编辑器聚焦后键盘遮挡问题（实际设备未生效）"
     ]
   },
   {
     "version": "0.9.9",
     "date": "2026-08-24",
-    "title": "修复 Android 复盘键盘遮挡",
-    "summary": "调整移动端复盘编辑器，使软键盘弹出后编辑区域跟随可视高度并保持独立滚动。",
+    "title": "修复 Android 复盘键盘遮挡（实际设备未生效）",
+    "summary": "调整移动端复盘编辑器，使软键盘弹出后编辑区域跟随可视高度并保持独立滚动。（实际设备未生效）",
     "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.9/app-release.apk",
     "changes": [
       "Android 原生窗口启用 adjustResize，避免输入法遮挡复盘编辑内容",
