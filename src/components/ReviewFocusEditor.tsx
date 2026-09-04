@@ -62,7 +62,9 @@ export function ReviewFocusEditor({ date, title, placeholder, value, onChange, o
     }
   }, [])
 
-  useEffect(() => {
+  // 在 layout effect 中聚焦：与打开编辑层的 pointerup 处于同一个任务里，
+  // 移动端浏览器才会把它当作用户手势并弹出软键盘。
+  useLayoutEffect(() => {
     editorRef.current?.focus({ preventScroll: true })
   }, [])
 

@@ -130,7 +130,9 @@ body,.app-shell{min-height:100dvh}
 .review-focus-head .review-focus-cancel{color:var(--muted);text-align:left}
 .review-focus-head .review-focus-confirm{color:var(--primary);text-align:right}
 .review-focus-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
-.review-focus-input{display:block;width:100%;min-height:100%;padding:16px 0 8px;border:0;background:transparent;color:var(--text);resize:none;font-size:16px;line-height:1.8;overscroll-behavior:auto}
-.review-focus-input:focus{outline:none}
+/* 选择器带 .review-focus-layer 前缀，避免被 .review-form textarea 的表单控件样式覆盖。 */
+.review-focus-layer .review-focus-input{display:block;width:100%;height:auto;min-height:100%;padding:16px 0 8px;border:0;border-radius:0;background:transparent;color:var(--text);resize:none;font:400 16px/1.8 'Noto Sans SC',sans-serif;overscroll-behavior:auto}
+.review-focus-layer .review-focus-input:focus{outline:none}
+.review-focus-layer .review-focus-input::placeholder{color:var(--muted)}
 .review-focus-tail{flex:0 0 auto;height:max(40vh,calc(var(--keyboard-inset,0px) + env(safe-area-inset-bottom) + 32px))}
 .review-focus-foot{flex:0 0 auto;padding-top:8px;border-top:1px solid var(--line);text-align:center;color:var(--muted);font-size:10px}
