@@ -1,15 +1,15 @@
 [
   {
-    "version": "0.9.16",
+    "version": "0.9.17",
     "date": "2026-09-04",
-    "title": "复盘与 Android 体验整合更新",
-    "summary": "整合复盘编辑、历史分页、导出和 Android 发布流程的近期改进，并回退导致键盘唤起时界面折叠的适配。",
-    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.16/app-release.apk",
+    "title": "复盘编辑器全屏与键盘稳定性整合更新",
+    "summary": "固定手机复盘编辑器的全屏结构，键盘出现时不改变外层布局，并汇总近期复盘分页与导出体验。浏览器回归已完成，Android 真机待验收。",
+    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.17/app-release.apk",
     "changes": [
-      "复盘编辑器重新跟随 visualViewport 的顶部和高度定位，软键盘占用空间时保持完整可见",
+      "手机端复盘编辑器固定铺满全屏，取消外层留白和 visualViewport 顶部/高度驱动",
+      "编辑时使用独立正文滚动区和尾部余量，空内容也可向下滚动；键盘出现时外层标题与操作区保持不变",
       "历史复盘分页显示上一页、页码和下一页，周复盘与按日期导出入口并排",
-      "Android 发布改为 GitHub Actions 构建；持续通知仍未通过真机验证，不作为已解决功能",
-      "浏览器移动视口回归已通过，Android 真机仍需安装 APK 验收"
+      "Android APK 交由 GitHub Actions 构建；浏览器 390×844 回归通过，Android 真机键盘行为待验收"
     ]
   },
   {

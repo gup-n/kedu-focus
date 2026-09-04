@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/refs -- review ids and crash-safe drafts are immutable mount-time refs */
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { addMonths, eachDayOfInterval, endOfMonth, format, getDay, parseISO, startOfMonth, subMonths } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -27,7 +27,7 @@ const nav = [['/today', '今日', Sparkles], ['/tasks', '任务', ListTodo], ['/
 const today = shanghaiDateKey();
 const cn = (...v: (string | false | undefined)[]) => v.filter(Boolean).join(' '); const sessionSeconds = (session: { seconds?: number; minutes: number }) => session.seconds ?? session.minutes * 60; const durationText = (seconds: number) => { const whole = Math.max(0, Math.round(seconds)); const h = Math.floor(whole / 3600), m = Math.floor(whole % 3600 / 60), s = whole % 60; return h ? `${h} 小时 ${m} 分钟` : s ? `${m} 分 ${s} 秒` : `${m} 分钟` };
 function useToday() { const [date, setDate] = useState(() => shanghaiDateKey()); useEffect(() => { const sync = () => setDate(shanghaiDateKey()); const id = window.setInterval(sync, 60_000); document.addEventListener('visibilitychange', sync); window.addEventListener('pageshow', sync); return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', sync); window.removeEventListener('pageshow', sync) } }, []); return date }
-function useViewportKeyboardInset() { useEffect(() => { const viewport = window.visualViewport; if (!viewport) return; const root = document.documentElement; const update = () => { root.style.setProperty('--keyboard-inset', `${Math.max(0, window.innerHeight - viewport.height)}px`); root.style.setProperty('--visual-viewport-height', `${viewport.height}px`); root.style.setProperty('--visual-viewport-top', `${viewport.offsetTop}px`) }; update(); viewport.addEventListener('resize', update); viewport.addEventListener('scroll', update); return () => { viewport.removeEventListener('resize', update); viewport.removeEventListener('scroll', update); root.style.removeProperty('--keyboard-inset'); root.style.removeProperty('--visual-viewport-height'); root.style.removeProperty('--visual-viewport-top') } }, []) }
+function useViewportKeyboardInset() { useEffect(() => { const viewport = window.visualViewport; if (!viewport) return; const root = document.documentElement; const update = () => { root.style.setProperty('--keyboard-inset', `${Math.max(0, window.innerHeight - viewport.height)}px`) }; update(); viewport.addEventListener('resize', update); viewport.addEventListener('scroll', update); return () => { viewport.removeEventListener('resize', update); viewport.removeEventListener('scroll', update); root.style.removeProperty('--keyboard-inset') } }, []) }
 
 function MobileNav() { const location = useLocation(); const grouped = ['/more', '/calendar', '/review', '/sleep', '/settings', '/health', '/data']; return <nav className="mobile-nav" aria-label="主导航">{mobileNav.map(([to, label, Icon]) => <NavLink key={to} to={to} className={location.pathname === to || (to === '/more' && grouped.includes(location.pathname)) ? 'active' : ''}><Icon /><span>{label}</span></NavLink>)}</nav> }
 function FocusNotificationBridge() {
@@ -83,6 +83,8 @@ function ReviewEditor({ date, compact = false }: { date: string; compact?: boole
   const [isNarrow, setIsNarrow] = useState(() => window.matchMedia?.('(max-width: 700px)').matches ?? false)
   const [editingField, setEditingField] = useState<keyof ReviewDraftFields>()
   const [editorValue, setEditorValue] = useState('')
+  const editorRef = useRef<HTMLTextAreaElement>(null)
+  const editorScrollY = useRef<number | null>(null)
   const saveRequested = useRef(false)
 
   useEffect(() => {
@@ -93,11 +95,31 @@ function ReviewEditor({ date, compact = false }: { date: string; compact?: boole
     return () => query.removeEventListener?.('change', update)
   }, [])
 
+  useLayoutEffect(() => {
+    if (!editingField) return
+    const scrollY = editorScrollY.current ?? window.scrollY
+    const previous = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    }
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.width = '100%'
+    return () => {
+      document.body.style.overflow = previous.overflow
+      document.body.style.position = previous.position
+      document.body.style.top = previous.top
+      document.body.style.width = previous.width
+      if (window.scrollY !== scrollY) window.scrollTo(0, scrollY)
+    }
+  }, [editingField])
+
   useEffect(() => {
     if (!editingField) return
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = previous }
+    editorRef.current?.focus({ preventScroll: true })
   }, [editingField])
 
   useEffect(() => {
@@ -146,6 +168,7 @@ function ReviewEditor({ date, compact = false }: { date: string; compact?: boole
   }
   function openEditor(field: keyof ReviewDraftFields) {
     if (!isNarrow) return
+    if (editingField === undefined) editorScrollY.current = window.scrollY
     setEditingField(field)
     setEditorValue(form[field])
   }
@@ -167,9 +190,9 @@ function ReviewEditor({ date, compact = false }: { date: string; compact?: boole
     : <Button onClick={save}><Check /> 保存当前复盘</Button>
 
   return <div className={cn('review-form', compact && 'compact-review')}>
-    {fields.map(([field, label, placeholder]) => <label key={field}>{label}<textarea aria-label={`${date} ${label}`} value={form[field]} readOnly={isNarrow} onFocus={() => openEditor(field)} onClick={() => openEditor(field)} onChange={event => updateField(field, event.target.value)} placeholder={placeholder} />{isNarrow && <small className="review-edit-hint">点击进入专注编辑</small>}</label>)}
+    {fields.map(([field, label, placeholder]) => <label key={field}>{label}<textarea aria-label={`${date} ${label}`} value={form[field]} readOnly={isNarrow} tabIndex={isNarrow ? -1 : undefined} onPointerDown={event => { if (isNarrow) { event.preventDefault(); openEditor(field) } }} onClick={event => { if (isNarrow) { event.preventDefault(); openEditor(field) } }} onFocus={() => openEditor(field)} onChange={event => updateField(field, event.target.value)} placeholder={placeholder} />{isNarrow && <small className="review-edit-hint">点击进入专注编辑</small>}</label>)}
     <div className="save-row"><span aria-live="polite">{saveNotice}</span><Button kind="quiet" onClick={() => void exportMarkdown()}><Download /> 导出 Markdown</Button>{manualSaveButton}</div>
-    {editingField && <div className="review-editor-backdrop" role="presentation"><section className="review-editor-sheet" role="dialog" aria-modal="true" aria-labelledby="review-editor-title"><header><button type="button" onClick={() => setEditingField(undefined)}>取消</button><div><p>{format(parseISO(date), 'M月d日', { locale: zhCN })}</p><h2 id="review-editor-title">{fields.find(([field]) => field === editingField)?.[1]}</h2></div><button type="button" className="confirm" onClick={confirmEditor}>确认</button></header><textarea autoFocus aria-label="复盘专注编辑框" value={editorValue} onChange={event => setEditorValue(event.target.value)} onFocus={event => window.setTimeout(() => event.currentTarget?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }), 120)} placeholder={fields.find(([field]) => field === editingField)?.[2]} /><p>点击确认后写回复盘，并立即进入自动保存。</p></section></div>}
+    {editingField && <div className="review-editor-backdrop" role="presentation"><section className="review-editor-sheet" role="dialog" aria-modal="true" aria-labelledby="review-editor-title"><header><button type="button" onClick={() => setEditingField(undefined)}>取消</button><div><p>{format(parseISO(date), 'M月d日', { locale: zhCN })}</p><h2 id="review-editor-title">{fields.find(([field]) => field === editingField)?.[1]}</h2></div><button type="button" className="confirm" onClick={confirmEditor}>确认</button></header><div className="review-editor-scroll"><textarea ref={editorRef} aria-label="复盘专注编辑框" value={editorValue} onChange={event => setEditorValue(event.target.value)} placeholder={fields.find(([field]) => field === editingField)?.[2]} /><div className="review-editor-scroll-tail" aria-hidden="true" /></div><p>点击确认后写回复盘，并立即进入自动保存。</p></section></div>}
   </div>
 }
 

@@ -189,17 +189,63 @@ describe('timer and review workflows', () => {
     expect(field).toHaveValue('确认后的长文')
   })
 
-  it('uses the visual viewport height when the mobile keyboard is open', async () => {
-    vi.stubGlobal('visualViewport', {
+  it('keeps the mobile editor independent from visual viewport geometry', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+    const viewport = {
       height: 410,
-      offsetTop: 0,
+      offsetTop: 36,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
-    })
+    }
+    vi.stubGlobal('visualViewport', viewport)
     renderRoute('/review')
     await screen.findByText('已保存在本机')
 
-    expect(document.documentElement.style.getPropertyValue('--visual-viewport-height')).toBe('410px')
+    expect(document.documentElement.style.getPropertyValue('--visual-viewport-height')).toBe('')
+    expect(document.documentElement.style.getPropertyValue('--visual-viewport-top')).toBe('')
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe(`${Math.max(0, window.innerHeight - viewport.height)}px`)
+
+    fireEvent.click(screen.getByLabelText(/今日收获/))
+    expect(document.querySelector('.review-editor-scroll')).toBeInTheDocument()
+    expect(document.querySelector('.review-editor-scroll-tail')).toBeInTheDocument()
+  })
+
+  it('locks the page at its current scroll position while editing and restores it on close', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+    const originalStyles = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    }
+    let captureScroll = false
+    let firstOpenRead = true
+    const scrollY = vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => {
+      if (captureScroll && firstOpenRead) {
+        firstOpenRead = false
+        return 240
+      }
+      return 0
+    })
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    renderRoute('/review')
+    await screen.findByText('已保存在本机')
+
+    const field = screen.getByLabelText(/今日收获/)
+    captureScroll = true
+    fireEvent.click(field)
+    expect(document.body.style.overflow).toBe('hidden')
+    expect(document.body.style.position).toBe('fixed')
+    expect(document.body.style.top).toBe('-240px')
+    expect(document.body.style.width).toBe('100%')
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(document.body.style.overflow).toBe(originalStyles.overflow)
+    expect(document.body.style.position).toBe(originalStyles.position)
+    expect(document.body.style.top).toBe(originalStyles.top)
+    expect(document.body.style.width).toBe(originalStyles.width)
+    expect(scrollTo).toHaveBeenCalledWith(0, 240)
+    expect(scrollY).toHaveBeenCalled()
   })
 
   it('automatically persists a review after typing', async () => {
