@@ -9,6 +9,20 @@ export interface ReleaseNote {
 
 export const releases: ReleaseNote[] = [
   {
+    version: '0.9.18',
+    date: '2026-09-04',
+    title: '复盘编辑改为点击进入全屏',
+    summary: '复盘编辑不再在按下时立即打开，改为点击对应模块进入全屏编辑；上下滑动浏览复盘时不再误触进入编辑。浏览器触摸模拟回归通过，Android 真机待验收。',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.18/app-release.apk',
+    changes: [
+      '复盘模块改为点击后进入全屏编辑层，按下不立即打开，避免手指落在模块上就秒进编辑',
+      '新增点击手势判定：位移与时长双重阈值，上下滑动浏览复盘时不会误触打开编辑器',
+      '全屏编辑层铺满窗口并锁定页面滚动，关闭后恢复原位置；键盘出现时标题与操作区布局稳定',
+      '输入聚焦在用户手势内完成，移动端软键盘可正常唤起；空内容也可向下滚动留出余量',
+      '浏览器 390×844 触摸模拟回归通过，Android 真机键盘与 adjustResize 几何待验收',
+    ],
+  },
+  {
     version: '0.9.17',
     date: '2026-09-04',
     title: '复盘编辑器全屏与键盘稳定性整合更新',
