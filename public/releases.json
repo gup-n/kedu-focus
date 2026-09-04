@@ -1,13 +1,25 @@
 [
   {
+    "version": "0.9.16",
+    "date": "2026-09-04",
+    "title": "回退复盘编辑器键盘适配",
+    "summary": "恢复按可视视口定位复盘编辑器，避免 Android 软键盘唤起时编辑界面折叠。",
+    "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.16/app-release.apk",
+    "changes": [
+      "复盘编辑器重新跟随 visualViewport 的顶部和高度定位",
+      "软键盘占用空间时，取消、确认、文本编辑区仍保持在可视范围内",
+      "浏览器移动视口回归已通过，Android 真机仍需安装 APK 验收"
+    ]
+  },
+  {
     "version": "0.9.15",
     "date": "2026-09-04",
-    "title": "修复手机复盘编辑器键盘偏移",
-    "summary": "弹出软键盘时复盘编辑器保持贴底完整显示，不再整体上移一半。",
+    "title": "复盘编辑器键盘适配尝试（未在 Android 真机生效）",
+    "summary": "曾调整软键盘布局，但实际 Android 设备仍出现编辑界面折叠；已在 0.9.16 回退并重新验证。",
     "apkUrl": "https://github.com/gup-n/kedu-focus/releases/download/v0.9.15/app-release.apk",
     "changes": [
-      "修复手机端弹出键盘时复盘编辑器整体上移一半的问题",
-      "空白复盘内容仍可向下滑动一段距离，长文本在键盘上方独立滚动"
+      "移动端键盘布局调整未在 Android 真机生效",
+      "后续修复请以 Android APK 真机验收结果为准"
     ]
   },
   {
