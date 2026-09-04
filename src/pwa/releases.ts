@@ -9,6 +9,17 @@ export interface ReleaseNote {
 
 export const releases: ReleaseNote[] = [
   {
+    version: '0.9.15',
+    date: '2026-09-04',
+    title: '修复手机复盘编辑器键盘偏移',
+    summary: '弹出软键盘时复盘编辑器保持贴底完整显示，不再整体上移一半。',
+    apkUrl: 'https://github.com/gup-n/kedu-focus/releases/download/v0.9.15/app-release.apk',
+    changes: [
+      '修复手机端弹出键盘时复盘编辑器整体上移一半的问题',
+      '空白复盘内容仍可向下滑动一段距离，长文本在键盘上方独立滚动',
+    ],
+  },
+  {
     version: '0.9.14',
     date: '2026-09-02',
     title: '优化复盘导出布局',
