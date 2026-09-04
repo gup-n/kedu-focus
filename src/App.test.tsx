@@ -8,6 +8,12 @@ import { AppProvider } from './state/AppContext'
 import { createBackupEnvelope } from './utils/backup'
 import { addShanghaiDays, dateKeyToShanghaiStart, shanghaiDateKey } from './utils/statistics'
 
+/** 模拟一次没有移动的短按：按下与抬起落在同一点。 */
+function tapElement(element: Element, position = { clientX: 160, clientY: 320 }) {
+  fireEvent.pointerDown(element, { pointerId: 1, ...position })
+  fireEvent.pointerUp(element, { pointerId: 1, ...position })
+}
+
 function renderRoute(route: string, state = seedState) {
   return render(
     <MemoryRouter initialEntries={[route]}>
@@ -171,22 +177,44 @@ describe('timer and review workflows', () => {
     expect(document.querySelectorAll('.review-marker').length).toBeGreaterThan(0)
   })
 
-  it('uses a focused full-screen editor for reviews on narrow screens', async () => {
+  it('opens a full-screen editor when a review module is tapped on narrow screens', async () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
     renderRoute('/review')
     await screen.findByText('已保存在本机')
 
     const field = screen.getByLabelText(/今日收获/)
-    fireEvent.click(field)
+    tapElement(field)
     const editor = screen.getByLabelText('复盘专注编辑框')
     fireEvent.change(editor, { target: { value: '手机长文草稿' } })
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
     expect(field).toHaveValue('')
+    expect(screen.queryByLabelText('复盘专注编辑框')).not.toBeInTheDocument()
 
-    fireEvent.click(field)
+    tapElement(field)
     fireEvent.change(screen.getByLabelText('复盘专注编辑框'), { target: { value: '确认后的长文' } })
     fireEvent.click(screen.getByRole('button', { name: '确认' }))
     expect(field).toHaveValue('确认后的长文')
+    expect(screen.queryByLabelText('复盘专注编辑框')).not.toBeInTheDocument()
+  })
+
+  it('keeps scrolling instead of opening the editor when the touch moves or is cancelled', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+    renderRoute('/review')
+    await screen.findByText('已保存在本机')
+
+    const field = screen.getByLabelText(/今日收获/)
+    fireEvent.pointerDown(field, { pointerId: 2, clientX: 160, clientY: 320 })
+    fireEvent.pointerMove(field, { pointerId: 2, clientX: 162, clientY: 392 })
+    fireEvent.pointerUp(field, { pointerId: 2, clientX: 162, clientY: 392 })
+    expect(screen.queryByLabelText('复盘专注编辑框')).not.toBeInTheDocument()
+
+    fireEvent.pointerDown(field, { pointerId: 3, clientX: 160, clientY: 320 })
+    fireEvent.pointerCancel(field, { pointerId: 3, clientX: 160, clientY: 320 })
+    fireEvent.pointerUp(field, { pointerId: 3, clientX: 160, clientY: 320 })
+    expect(screen.queryByLabelText('复盘专注编辑框')).not.toBeInTheDocument()
+
+    tapElement(field)
+    expect(screen.getByLabelText('复盘专注编辑框')).toBeInTheDocument()
   })
 
   it('keeps the mobile editor independent from visual viewport geometry', async () => {
@@ -205,9 +233,11 @@ describe('timer and review workflows', () => {
     expect(document.documentElement.style.getPropertyValue('--visual-viewport-top')).toBe('')
     expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe(`${Math.max(0, window.innerHeight - viewport.height)}px`)
 
-    fireEvent.click(screen.getByLabelText(/今日收获/))
-    expect(document.querySelector('.review-editor-scroll')).toBeInTheDocument()
-    expect(document.querySelector('.review-editor-scroll-tail')).toBeInTheDocument()
+    tapElement(screen.getByLabelText(/今日收获/))
+    expect(document.querySelector('.review-focus-layer')).toBeInTheDocument()
+    expect(document.querySelector('.review-focus-scroll')).toBeInTheDocument()
+    expect(document.querySelector('.review-focus-tail')).toBeInTheDocument()
+    expect(document.querySelector('.review-editor-backdrop')).not.toBeInTheDocument()
   })
 
   it('locks the page at its current scroll position while editing and restores it on close', async () => {
@@ -233,7 +263,7 @@ describe('timer and review workflows', () => {
 
     const field = screen.getByLabelText(/今日收获/)
     captureScroll = true
-    fireEvent.click(field)
+    tapElement(field)
     expect(document.body.style.overflow).toBe('hidden')
     expect(document.body.style.position).toBe('fixed')
     expect(document.body.style.top).toBe('-240px')

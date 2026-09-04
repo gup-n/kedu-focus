@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/refs -- review ids and crash-safe drafts are immutable mount-time refs */
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { addMonths, eachDayOfInterval, endOfMonth, format, getDay, parseISO, startOfMonth, subMonths } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -12,6 +12,8 @@ import { DataManagement } from './components/DataManagement';
 import { DataHealth } from './components/DataHealth';
 import { SleepHistory } from './components/SleepHistory';
 import { ReviewArchive } from './components/ReviewArchive';
+import { ReviewFocusEditor, useNarrowViewport } from './components/ReviewFocusEditor';
+import { createTapTracker, type TapTracker } from './utils/tapGesture';
 import { createSleepWindow, defaultSleepDate, formatSleepDuration } from './utils/sleep';
 import { PwaSettings } from './pwa/PwaSettings';
 import { FocusNotification } from './pwa/apkUpdater';
@@ -80,47 +82,11 @@ function ReviewEditor({ date, compact = false }: { date: string; compact?: boole
   const [form, setForm] = useState<ReviewDraftFields>(initialForm)
   const [autoStatus, setAutoStatus] = useState<'idle' | 'pending' | 'saving' | 'saved'>(storedDraft.current ? 'pending' : 'idle')
   const [exportNotice, setExportNotice] = useState('')
-  const [isNarrow, setIsNarrow] = useState(() => window.matchMedia?.('(max-width: 700px)').matches ?? false)
+  const isNarrow = useNarrowViewport()
   const [editingField, setEditingField] = useState<keyof ReviewDraftFields>()
   const [editorValue, setEditorValue] = useState('')
-  const editorRef = useRef<HTMLTextAreaElement>(null)
-  const editorScrollY = useRef<number | null>(null)
   const saveRequested = useRef(false)
-
-  useEffect(() => {
-    const query = window.matchMedia?.('(max-width: 700px)')
-    if (!query) return
-    const update = () => setIsNarrow(query.matches)
-    query.addEventListener?.('change', update)
-    return () => query.removeEventListener?.('change', update)
-  }, [])
-
-  useLayoutEffect(() => {
-    if (!editingField) return
-    const scrollY = editorScrollY.current ?? window.scrollY
-    const previous = {
-      overflow: document.body.style.overflow,
-      position: document.body.style.position,
-      top: document.body.style.top,
-      width: document.body.style.width,
-    }
-    document.body.style.overflow = 'hidden'
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
-    document.body.style.width = '100%'
-    return () => {
-      document.body.style.overflow = previous.overflow
-      document.body.style.position = previous.position
-      document.body.style.top = previous.top
-      document.body.style.width = previous.width
-      if (window.scrollY !== scrollY) window.scrollTo(0, scrollY)
-    }
-  }, [editingField])
-
-  useEffect(() => {
-    if (!editingField) return
-    editorRef.current?.focus({ preventScroll: true })
-  }, [editingField])
+  const tap = useRef<TapTracker | undefined>(undefined)
 
   useEffect(() => {
     if (autoStatus !== 'pending') return
@@ -167,8 +133,6 @@ function ReviewEditor({ date, compact = false }: { date: string; compact?: boole
     }
   }
   function openEditor(field: keyof ReviewDraftFields) {
-    if (!isNarrow) return
-    if (editingField === undefined) editorScrollY.current = window.scrollY
     setEditingField(field)
     setEditorValue(form[field])
   }
@@ -176,6 +140,10 @@ function ReviewEditor({ date, compact = false }: { date: string; compact?: boole
     if (!editingField) return
     updateField(editingField, editorValue)
     setEditingField(undefined)
+  }
+  function tracker() {
+    tap.current ??= createTapTracker()
+    return tap.current
   }
 
   const saveNotice = autoStatus === 'pending'
@@ -189,10 +157,31 @@ function ReviewEditor({ date, compact = false }: { date: string; compact?: boole
     ? null
     : <Button onClick={save}><Check /> 保存当前复盘</Button>
 
+  const editing = fields.find(([field]) => field === editingField)
+
   return <div className={cn('review-form', compact && 'compact-review')}>
-    {fields.map(([field, label, placeholder]) => <label key={field}>{label}<textarea aria-label={`${date} ${label}`} value={form[field]} readOnly={isNarrow} tabIndex={isNarrow ? -1 : undefined} onPointerDown={event => { if (isNarrow) { event.preventDefault(); openEditor(field) } }} onClick={event => { if (isNarrow) { event.preventDefault(); openEditor(field) } }} onFocus={() => openEditor(field)} onChange={event => updateField(field, event.target.value)} placeholder={placeholder} />{isNarrow && <small className="review-edit-hint">点击进入专注编辑</small>}</label>)}
+    {fields.map(([field, label, placeholder]) => <label key={field}>{label}<textarea
+      aria-label={`${date} ${label}`}
+      value={form[field]}
+      readOnly={isNarrow}
+      onPointerDown={event => { if (isNarrow) tracker().down(event) }}
+      onPointerMove={event => { if (isNarrow) tracker().move(event) }}
+      onPointerUp={event => { if (isNarrow && tracker().up(event)) { event.preventDefault(); openEditor(field) } }}
+      onPointerCancel={() => tracker().cancel()}
+      onKeyDown={event => { if (isNarrow && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openEditor(field) } }}
+      onChange={event => updateField(field, event.target.value)}
+      placeholder={placeholder}
+    />{isNarrow && <small className="review-edit-hint">点击进入全屏编辑</small>}</label>)}
     <div className="save-row"><span aria-live="polite">{saveNotice}</span><Button kind="quiet" onClick={() => void exportMarkdown()}><Download /> 导出 Markdown</Button>{manualSaveButton}</div>
-    {editingField && <div className="review-editor-backdrop" role="presentation"><section className="review-editor-sheet" role="dialog" aria-modal="true" aria-labelledby="review-editor-title"><header><button type="button" onClick={() => setEditingField(undefined)}>取消</button><div><p>{format(parseISO(date), 'M月d日', { locale: zhCN })}</p><h2 id="review-editor-title">{fields.find(([field]) => field === editingField)?.[1]}</h2></div><button type="button" className="confirm" onClick={confirmEditor}>确认</button></header><div className="review-editor-scroll"><textarea ref={editorRef} aria-label="复盘专注编辑框" value={editorValue} onChange={event => setEditorValue(event.target.value)} placeholder={fields.find(([field]) => field === editingField)?.[2]} /><div className="review-editor-scroll-tail" aria-hidden="true" /></div><p>点击确认后写回复盘，并立即进入自动保存。</p></section></div>}
+    {editing && <ReviewFocusEditor
+      date={date}
+      title={editing[1]}
+      placeholder={editing[2]}
+      value={editorValue}
+      onChange={setEditorValue}
+      onCancel={() => setEditingField(undefined)}
+      onConfirm={confirmEditor}
+    />}
   </div>
 }
 
